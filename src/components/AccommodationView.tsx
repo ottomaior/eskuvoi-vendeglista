@@ -156,14 +156,16 @@ function RoomForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [cap, setCap] = useState(String(initial?.capacity ?? ''));
+  const [errors, setErrors] = useState<{ name?: boolean; cap?: boolean }>({});
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { nameRef.current?.focus(); }, []);
 
   function commit() {
     const n = name.trim();
-    const c = parseInt(cap, 10);
-    if (!n || isNaN(c) || c < 1) return;
+    const c = cap.trim() === '' ? 1 : parseInt(cap, 10);
+    const errs = { name: !n, cap: isNaN(c) || c < 1 };
+    if (errs.name || errs.cap) { setErrors(errs); return; }
     onSave(n, c);
   }
 
@@ -175,21 +177,26 @@ function RoomForm({
           type="text"
           placeholder="Szoba neve…"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); setErrors((e2) => ({ ...e2, name: false })); }}
           onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel(); }}
-          className="flex-1 min-w-0 px-2.5 py-2 text-sm rounded-lg border border-autumn-300 focus:outline-none focus:ring-2 focus:ring-autumn-300 min-h-[40px]"
+          className={`flex-1 min-w-0 px-2.5 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 min-h-[40px] ${errors.name ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-autumn-300 focus:ring-autumn-300'}`}
         />
         <input
           type="number"
           min={1}
-          max={20}
+          max={99}
           placeholder="fő"
           value={cap}
-          onChange={(e) => setCap(e.target.value)}
+          onChange={(e) => { setCap(e.target.value); setErrors((e2) => ({ ...e2, cap: false })); }}
           onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel(); }}
-          className="w-16 px-2.5 py-2 text-sm rounded-lg border border-autumn-300 focus:outline-none focus:ring-2 focus:ring-autumn-300 text-center min-h-[40px]"
+          className={`w-16 px-2.5 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 text-center min-h-[40px] ${errors.cap ? 'border-red-400 focus:ring-red-300 bg-red-50' : 'border-autumn-300 focus:ring-autumn-300'}`}
         />
       </div>
+      {(errors.name || errors.cap) && (
+        <p className="text-xs text-red-500">
+          {errors.name ? 'Adj meg szoba nevet. ' : ''}{errors.cap ? 'A kapacitásnak legalább 1-nek kell lennie.' : ''}
+        </p>
+      )}
       <div className="flex gap-1.5">
         <button onClick={commit}
           className="flex-1 px-3 py-2 text-sm rounded-lg bg-autumn-600 text-white hover:bg-autumn-700 active:bg-autumn-800 transition-colors min-h-[40px]"
