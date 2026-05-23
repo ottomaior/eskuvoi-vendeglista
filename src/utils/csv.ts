@@ -6,11 +6,31 @@ import { CSV_HEADER_MAP, CSV_REVERSE_MAP, FULL_LIST_COLUMNS, SZALLAS_COLUMNS } f
 
 // ── Row mapping (shared between CSV and spreadsheet paths) ────────────────────
 
+/** Normalize header strings so spreadsheets with subtle whitespace/Unicode/BOM
+ *  differences still match the map: NFC normalize, strip BOM, collapse whitespace,
+ *  lowercase. */
+function normalizeHeader(s: string): string {
+  return s
+    .normalize('NFC')
+    .replace(/^\uFEFF/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const NORMALIZED_HEADER_MAP: Record<string, keyof Omit<Guest, 'id'>> =
+  Object.fromEntries(
+    Object.entries(CSV_HEADER_MAP).map(([k, v]) => [normalizeHeader(k), v])
+  );
+
 function mapRows(rows: Record<string, unknown>[]): Guest[] {
   return rows.map((row) => {
     const guest: Partial<Guest> = { id: uuidv4() };
-    for (const [headerKey, fieldKey] of Object.entries(CSV_HEADER_MAP)) {
-      guest[fieldKey] = String(row[headerKey] ?? '').trim();
+    for (const [rawHeader, value] of Object.entries(row)) {
+      const fieldKey = NORMALIZED_HEADER_MAP[normalizeHeader(rawHeader)];
+      if (fieldKey) {
+        guest[fieldKey] = String(value ?? '').trim();
+      }
     }
     return guest as Guest;
   });
@@ -55,6 +75,16 @@ export interface ParsedSzallasFile {
   capacities: Record<string, number>;
 }
 
+function getNormalized(row: Record<string, unknown>, key: string): string {
+  const target = normalizeHeader(key);
+  for (const [rawHeader, value] of Object.entries(row)) {
+    if (normalizeHeader(rawHeader) === target) {
+      return String(value ?? '').trim();
+    }
+  }
+  return '';
+}
+
 export async function parseSzallasFile(file: File): Promise<ParsedSzallasFile> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   const rows = ext === 'csv'
@@ -65,15 +95,15 @@ export async function parseSzallasFile(file: File): Promise<ParsedSzallasFile> {
   const guestRows: Record<string, unknown>[] = [];
 
   for (const row of rows) {
-    const szallasName = String(row['Szállások'] ?? '').trim();
-    const helyek = String(row['Helyek'] ?? '').trim();
+    const szallasName = getNormalized(row, 'Szállások');
+    const helyek = getNormalized(row, 'Helyek');
     if (szallasName && helyek) {
       const n = parseInt(helyek, 10);
       if (!isNaN(n) && n > 0) {
         capacities[szallasName] = n;
       }
     }
-    if (String(row['Vendég neve'] ?? '').trim()) {
+    if (getNormalized(row, 'Vendég neve')) {
       guestRows.push(row);
     }
   }
