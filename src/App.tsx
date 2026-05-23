@@ -34,10 +34,18 @@ import LoginScreen from './components/LoginScreen';
 type EditContext = { guest: Guest; source: TabId; isNew?: boolean };
 type SzallasViewMode = 'cards' | 'table';
 
-function blankGuest(): Guest {
+function nextLetszam(list: Guest[]): string {
+  const max = list.reduce((m, g) => {
+    const n = parseInt(g.letszam ?? '', 10);
+    return isNaN(n) ? m : Math.max(m, n);
+  }, 0);
+  return String(max + 1);
+}
+
+function blankGuest(letszam = '1'): Guest {
   return {
     id: uuidv4(),
-    letszam: '1',
+    letszam,
     vendegNeve: '',
     meghivoElkuldve: '',
     visszajelzes: '',
@@ -318,7 +326,7 @@ export default function App() {
                 onExport={() => exportCSV(guests)}
                 onClear={handleClearGuests}
                 importLabel="CSV betöltése"
-                onAddNew={() => setEditContext({ guest: blankGuest(), source: 'teljes', isNew: true })}
+                onAddNew={() => setEditContext({ guest: blankGuest(nextLetszam(guests)), source: 'teljes', isNew: true })}
               />
               <SearchBar
                 search={teljesSearch}
@@ -345,7 +353,7 @@ export default function App() {
                 onExport={() => exportSzallasCSV(szallasGuests)}
                 onClear={handleClearSzallas}
                 importLabel="Szállás CSV betöltése"
-                onAddNew={() => setEditContext({ guest: blankGuest(), source: 'szallas', isNew: true })}
+                onAddNew={() => setEditContext({ guest: blankGuest(nextLetszam(szallasGuests)), source: 'szallas', isNew: true })}
               >
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                   <button
