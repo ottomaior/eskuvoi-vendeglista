@@ -32,9 +32,11 @@ app.use('/api/rooms', requireAuth, roomsRouter);
 
 // ── Serve Vite build in production ────────────────────────────────────────────
 const distDir = path.join(__dirname, '..', 'dist');
+const indexHtml = path.join(distDir, 'index.html');
 app.use(express.static(distDir));
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(distDir, 'index.html'));
+// Express 5 requires a named wildcard (path-to-regexp v8); '*' alone crashes at startup
+app.get('/{*splat}', (_req, res) => {
+  res.sendFile(indexHtml);
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
