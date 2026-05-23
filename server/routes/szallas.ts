@@ -64,6 +64,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// ── POST /api/szallas/new (single insert) ────────────────────────────────────
+
+router.post('/new', async (req, res) => {
+  const c = guestToColumns(req.body as Record<string, string>);
+  await pool.query(
+    `INSERT INTO guests (id, source, letszam, vendeg_neve, meghivo_elkuldve, visszajelzes,
+      telefonszam, erkezes_datuma, tavozas_datuma, szallas_typusa, szallas_neve,
+      szobaszam, etkezes, etkezesi_korlatozas, ultetesi_rend, megjegyzes)
+     VALUES ($1,'szallas',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+    [c.id, c.letszam, c.vendeg_neve, c.meghivo_elkuldve, c.visszajelzes,
+     c.telefonszam, c.erkezes_datuma, c.tavozas_datuma, c.szallas_typusa, c.szallas_neve,
+     c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes]
+  );
+  await broadcast();
+  res.json({ ok: true });
+});
+
 // ── PUT /api/szallas/:id ──────────────────────────────────────────────────────
 
 router.put('/:id', async (req, res) => {

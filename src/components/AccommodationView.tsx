@@ -11,6 +11,9 @@ interface AccommodationViewProps {
   onRoomsChange: (accName: string, rooms: RoomDef[]) => void;
   onAssignRoom: (guestId: string, roomName: string) => void;
   onEditGuest: (guest: Guest) => void;
+  onAddAccommodation: (name: string) => void;
+  onRenameAccommodation: (oldName: string, newName: string, maxSlots: number) => void;
+  onDeleteAccommodation: (name: string) => void;
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -343,6 +346,8 @@ function AccommodationCard({
   onRoomsChange,
   onAssignRoom,
   onEditGuest,
+  onRename,
+  onDelete,
 }: {
   name: string;
   guests: Guest[];
@@ -352,7 +357,30 @@ function AccommodationCard({
   onRoomsChange: (rooms: RoomDef[]) => void;
   onAssignRoom: (guestId: string, roomName: string) => void;
   onEditGuest: (g: Guest) => void;
+  onRename?: (newName: string, maxSlots: number) => void;
+  onDelete?: () => void;
 }) {
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+  const [draftCap, setDraftCap] = useState(String(maxSlots ?? ''));
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editingHeader) nameInputRef.current?.select(); }, [editingHeader]);
+
+  function openHeaderEdit() {
+    setDraftName(name);
+    setDraftCap(String(maxSlots ?? ''));
+    setEditingHeader(true);
+  }
+
+  function commitHeaderEdit() {
+    const newName = draftName.trim();
+    if (!newName) return;
+    const cap = parseInt(draftCap, 10);
+    onRename?.(newName, isNaN(cap) || cap < 0 ? 0 : cap);
+    setEditingHeader(false);
+  }
+
   const hasRooms = accRooms.length > 0;
   const roomsTotal = hasRooms ? accRooms.reduce((s, r) => s + r.capacity, 0) : (maxSlots ?? 0);
   const occupied = guests.reduce((sum, g) => sum + guestHeadcount(g), 0);
@@ -367,21 +395,82 @@ function AccommodationCard({
     <div className="bg-[#FFFCF8] rounded-xl border border-autumn-200 shadow-sm shadow-autumn-200/25 overflow-hidden">
       {/* Card header */}
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <h3 className={`font-display font-semibold text-base leading-tight ${isUnassigned ? 'text-gray-400 italic' : 'text-autumn-800'}`}>
-            {isUnassigned ? 'Nincs szállás megadva' : name}
-          </h3>
-          <div className="flex items-center gap-2 shrink-0">
-            {!isUnassigned && !hasRooms && (
-              <CapacityEditor name={name} value={maxSlots} onChange={onCapacityChange} />
-            )}
-            <span className={`text-sm font-semibold tabular-nums ${pctColor}`}>
-              {occupied}{hasMax ? ` / ${effectiveMax}` : ' fő'}
-            </span>
+        {!isUnassigned && editingHeader ? (
+          /* ── Inline header edit form ── */
+          <div className="flex flex-col gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-2">
+              <input
+                ref={nameInputRef}
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitHeaderEdit(); if (e.key === 'Escape') setEditingHeader(false); }}
+                placeholder="Szálláshely neve…"
+                className="flex-1 min-w-0 px-2.5 py-2 text-sm font-semibold rounded-lg border border-autumn-300 focus:outline-none focus:ring-2 focus:ring-autumn-400 min-h-[40px]"
+              />
+              <input
+                type="number"
+                min={0}
+                placeholder="max fő"
+                value={draftCap}
+                onChange={(e) => setDraftCap(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitHeaderEdit(); if (e.key === 'Escape') setEditingHeader(false); }}
+                className="w-20 px-2.5 py-2 text-sm rounded-lg border border-autumn-300 focus:outline-none focus:ring-2 focus:ring-autumn-400 text-center min-h-[40px]"
+                title="Max kapacitás (fő)"
+              />
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={commitHeaderEdit}
+                disabled={!draftName.trim()}
+                className="flex-1 px-3 py-2 text-sm rounded-lg bg-autumn-600 text-white hover:bg-autumn-700 disabled:opacity-40 transition-colors min-h-[38px]"
+              >Mentés</button>
+              <button
+                onClick={() => setEditingHeader(false)}
+                className="px-3 py-2 text-sm rounded-lg border border-gray-200 text-gray-500 hover:bg-stone-50 transition-colors min-h-[38px]"
+              >Mégse</button>
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingHeader(false); onDelete(); }}
+                  className="px-3 py-2 text-sm rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors min-h-[38px]"
+                  title="Szálláshely törlése"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className={`font-display font-semibold text-base leading-tight truncate ${isUnassigned ? 'text-gray-400 italic' : 'text-autumn-800'}`}>
+                {isUnassigned ? 'Nincs szállás megadva' : name}
+              </h3>
+              {!isUnassigned && onRename && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); openHeaderEdit(); }}
+                  className="shrink-0 p-1 rounded text-gray-300 hover:text-autumn-500 hover:bg-autumn-50 transition-colors"
+                  title="Szálláshely szerkesztése"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {!isUnassigned && !hasRooms && (
+                <CapacityEditor name={name} value={maxSlots} onChange={onCapacityChange} />
+              )}
+              <span className={`text-sm font-semibold tabular-nums ${pctColor}`}>
+                {occupied}{hasMax ? ` / ${effectiveMax}` : ' fő'}
+              </span>
+            </div>
+          </div>
+        )}
 
-        {!isUnassigned && (
+        {!isUnassigned && !editingHeader && (
           <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${barColor}`}
@@ -389,7 +478,7 @@ function AccommodationCard({
             />
           </div>
         )}
-        {pct !== null && (
+        {!editingHeader && pct !== null && (
           <p className={`text-xs mt-1 font-medium ${pctColor}`}>{pct}% foglalt</p>
         )}
       </div>
@@ -475,7 +564,25 @@ export default function AccommodationView({
   onRoomsChange,
   onAssignRoom,
   onEditGuest,
+  onAddAccommodation,
+  onRenameAccommodation,
+  onDeleteAccommodation,
 }: AccommodationViewProps) {
+  const [addingAcc, setAddingAcc] = useState(false);
+  const [newAccName, setNewAccName] = useState('');
+  const newAccInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (addingAcc) newAccInputRef.current?.focus();
+  }, [addingAcc]);
+
+  function handleConfirmAddAcc() {
+    const name = newAccName.trim();
+    if (!name) return;
+    onAddAccommodation(name);
+    setNewAccName('');
+    setAddingAcc(false);
+  }
   const groups = new Map<string, Guest[]>();
   const unassigned: Guest[] = [];
 
@@ -501,11 +608,39 @@ export default function AccommodationView({
 
   if (guests.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-        <svg className="w-12 h-12 mb-3 text-autumn-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-        <p className="text-sm">Nincsenek szállással rendelkező vendégek</p>
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+          <svg className="w-12 h-12 mb-3 text-autumn-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <p className="text-sm">Nincsenek szállással rendelkező vendégek</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {addingAcc ? (
+            <div className="rounded-xl border-2 border-dashed border-autumn-300 bg-[#FFFCF8] p-4 flex flex-col gap-3 shadow-sm">
+              <p className="text-sm font-semibold text-autumn-700">Új szálláshely neve</p>
+              <input
+                ref={newAccInputRef}
+                value={newAccName}
+                onChange={(e) => setNewAccName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmAddAcc(); if (e.key === 'Escape') setAddingAcc(false); }}
+                placeholder="pl. Vendégház..."
+                className="w-full px-3 py-2.5 rounded-lg border border-autumn-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-autumn-400 min-h-[44px]"
+              />
+              <div className="flex gap-2">
+                <button onClick={handleConfirmAddAcc} disabled={!newAccName.trim()} className="flex-1 px-3 py-2.5 rounded-lg bg-autumn-600 text-white text-sm font-medium hover:bg-autumn-700 disabled:opacity-40 transition-colors min-h-[44px]">Hozzáad</button>
+                <button onClick={() => { setAddingAcc(false); setNewAccName(''); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-stone-50 transition-colors min-h-[44px]">Mégse</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setAddingAcc(true)} className="rounded-xl border-2 border-dashed border-autumn-200 bg-[#FFFCF8]/60 hover:bg-autumn-50 hover:border-autumn-300 transition-colors flex flex-col items-center justify-center gap-2 p-6 text-autumn-500 hover:text-autumn-700 min-h-[100px]">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="text-sm font-medium">Új szálláshely</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -547,6 +682,8 @@ export default function AccommodationView({
             onRoomsChange={(r) => onRoomsChange(name, r)}
             onAssignRoom={onAssignRoom}
             onEditGuest={onEditGuest}
+            onRename={(newName, maxSlots) => onRenameAccommodation(name, newName, maxSlots)}
+            onDelete={() => onDeleteAccommodation(name)}
           />
         ))}
         {unassigned.length > 0 && (
@@ -561,6 +698,46 @@ export default function AccommodationView({
             onAssignRoom={onAssignRoom}
             onEditGuest={onEditGuest}
           />
+        )}
+
+        {/* Add accommodation card */}
+        {addingAcc ? (
+          <div className="rounded-xl border-2 border-dashed border-autumn-300 bg-[#FFFCF8] p-4 flex flex-col gap-3 shadow-sm">
+            <p className="text-sm font-semibold text-autumn-700">Új szálláshely neve</p>
+            <input
+              ref={newAccInputRef}
+              value={newAccName}
+              onChange={(e) => setNewAccName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmAddAcc(); if (e.key === 'Escape') setAddingAcc(false); }}
+              placeholder="pl. Vendégház..."
+              className="w-full px-3 py-2.5 rounded-lg border border-autumn-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-autumn-400 min-h-[44px]"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleConfirmAddAcc}
+                disabled={!newAccName.trim()}
+                className="flex-1 px-3 py-2.5 rounded-lg bg-autumn-600 text-white text-sm font-medium hover:bg-autumn-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+              >
+                Hozzáad
+              </button>
+              <button
+                onClick={() => { setAddingAcc(false); setNewAccName(''); }}
+                className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-stone-50 transition-colors min-h-[44px]"
+              >
+                Mégse
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAddingAcc(true)}
+            className="rounded-xl border-2 border-dashed border-autumn-200 bg-[#FFFCF8]/60 hover:bg-autumn-50 hover:border-autumn-300 transition-colors flex flex-col items-center justify-center gap-2 p-6 text-autumn-500 hover:text-autumn-700 min-h-[100px]"
+          >
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-sm font-medium">Új szálláshely</span>
+          </button>
         )}
       </div>
     </div>

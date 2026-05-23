@@ -108,8 +108,8 @@ function SortIcon({ dir }: { dir: SortDir }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function GuestTable({ guests, columns, onEditGuest, emptyMessage }: GuestTableProps) {
-  const [sortKey, setSortKey] = useState<keyof Guest | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [sortKey, setSortKey] = useState<keyof Guest | null>('letszam');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   function handleSort(key: keyof Guest) {
     if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
@@ -119,9 +119,19 @@ export default function GuestTable({ guests, columns, onEditGuest, emptyMessage 
 
   const sorted = [...guests].sort((a, b) => {
     if (!sortKey || !sortDir) return 0;
-    const av = (a[sortKey] ?? '').toLowerCase();
-    const bv = (b[sortKey] ?? '').toLowerCase();
-    return sortDir === 'asc' ? av.localeCompare(bv, 'hu') : bv.localeCompare(av, 'hu');
+    const av = a[sortKey] ?? '';
+    const bv = b[sortKey] ?? '';
+    // Numeric sort for letszam so 1 < 2 < 10 (not lexicographic)
+    if (sortKey === 'letszam') {
+      const an = parseInt(av, 10);
+      const bn = parseInt(bv, 10);
+      if (!isNaN(an) && !isNaN(bn)) {
+        return sortDir === 'asc' ? an - bn : bn - an;
+      }
+    }
+    return sortDir === 'asc'
+      ? av.toLowerCase().localeCompare(bv.toLowerCase(), 'hu')
+      : bv.toLowerCase().localeCompare(av.toLowerCase(), 'hu');
   });
 
   if (guests.length === 0) {

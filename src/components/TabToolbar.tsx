@@ -6,11 +6,12 @@ interface TabToolbarProps {
   onImport: (file: File) => void;
   onExport: () => void;
   onClear: () => void;
+  onAddNew?: () => void;
   importLabel: string;
   children?: React.ReactNode;
 }
 
-export default function TabToolbar({ count, igenCount, onImport, onExport, onClear, importLabel, children }: TabToolbarProps) {
+export default function TabToolbar({ count, igenCount, onImport, onExport, onClear, onAddNew, importLabel, children }: TabToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -56,6 +57,18 @@ export default function TabToolbar({ count, igenCount, onImport, onExport, onCle
         {showProgress && <div />}
 
         <div className="flex flex-wrap items-center gap-2">
+          {onAddNew && (
+            <button
+              onClick={onAddNew}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg bg-[#FFFCF8] text-autumn-700 border border-autumn-200 hover:bg-autumn-50 active:bg-autumn-100 transition-colors min-h-[44px]"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Új vendég</span>
+              <span className="sm:hidden">Új</span>
+            </button>
+          )}
           {children}
           <input
             ref={fileInputRef}

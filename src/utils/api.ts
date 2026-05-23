@@ -53,6 +53,10 @@ export async function importGuests(guests: Guest[]): Promise<void> {
   await apiFetch('/api/guests', { method: 'POST', body: JSON.stringify(guests) });
 }
 
+export async function addGuest(guest: Guest): Promise<void> {
+  await apiFetch('/api/guests/new', { method: 'POST', body: JSON.stringify(guest) });
+}
+
 export async function saveGuest(guest: Guest): Promise<void> {
   await apiFetch(`/api/guests/${guest.id}`, { method: 'PUT', body: JSON.stringify(guest) });
 }
@@ -67,6 +71,10 @@ export async function importSzallas(guests: Guest[]): Promise<void> {
   await apiFetch('/api/szallas', { method: 'POST', body: JSON.stringify(guests) });
 }
 
+export async function addSzallasGuest(guest: Guest): Promise<void> {
+  await apiFetch('/api/szallas/new', { method: 'POST', body: JSON.stringify(guest) });
+}
+
 export async function saveSzallasGuest(guest: Guest): Promise<void> {
   await apiFetch(`/api/szallas/${guest.id}`, { method: 'PUT', body: JSON.stringify(guest) });
 }
@@ -79,6 +87,21 @@ export async function clearSzallas(): Promise<void> {
 
 export async function saveCapacity(name: string, maxSlots: number): Promise<void> {
   await apiFetch('/api/capacities', { method: 'PUT', body: JSON.stringify({ name, maxSlots }) });
+}
+
+export async function addAccommodation(name: string): Promise<void> {
+  await apiFetch('/api/capacities', { method: 'PUT', body: JSON.stringify({ name, maxSlots: 0 }) });
+}
+
+export async function renameAccommodation(oldName: string, newName: string, maxSlots: number): Promise<void> {
+  await apiFetch(`/api/capacities/${encodeURIComponent(oldName)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ newName, maxSlots }),
+  });
+}
+
+export async function deleteAccommodation(name: string): Promise<void> {
+  await apiFetch(`/api/capacities/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
 // ── Rooms ─────────────────────────────────────────────────────────────────────

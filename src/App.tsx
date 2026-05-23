@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import type { Guest } from './types';
 import { FULL_LIST_COLUMNS, SZALLAS_COLUMNS, SHARED_FIELD_KEYS } from './types';
 import { parseFile, parseSzallasFile, exportCSV, exportSzallasCSV } from './utils/csv';
@@ -6,12 +7,17 @@ import type { RoomDef } from './utils/rooms';
 import {
   getToken,
   importGuests,
+  addGuest,
   saveGuest,
   clearGuests,
   importSzallas,
+  addSzallasGuest,
   saveSzallasGuest,
   clearSzallas,
   saveCapacity,
+  addAccommodation,
+  renameAccommodation,
+  deleteAccommodation,
   saveRoomsForAcc,
 } from './utils/api';
 import Header from './components/Header';
@@ -25,8 +31,28 @@ import AccommodationView from './components/AccommodationView';
 import EditModal from './components/EditModal';
 import LoginScreen from './components/LoginScreen';
 
-type EditContext = { guest: Guest; source: TabId };
+type EditContext = { guest: Guest; source: TabId; isNew?: boolean };
 type SzallasViewMode = 'cards' | 'table';
+
+function blankGuest(): Guest {
+  return {
+    id: uuidv4(),
+    letszam: '1',
+    vendegNeve: '',
+    meghivoElkuldve: '',
+    visszajelzes: '',
+    telefonszam: '',
+    erkezesDatuma: '',
+    tavozasDatuma: '',
+    szallasTypusa: '',
+    szallasNeve: '',
+    szobaszam: '',
+    etkezes: '',
+    etkezesiKorlatozas: '',
+    ultetesiRend: '',
+    megjegyzes: '',
+  };
+}
 
 // Full state shape pushed over SSE
 interface ServerState {
@@ -181,11 +207,35 @@ export default function App() {
     }
   }
 
+  async function handleAddAccommodation(name: string) {
+    await addAccommodation(name);
+  }
+
+  async function handleRenameAccommodation(oldName: string, newName: string, maxSlots: number) {
+    await renameAccommodation(oldName, newName, maxSlots);
+  }
+
+  async function handleDeleteAccommodation(name: string) {
+    if (window.confirm(`Biztosan törli a(z) „${name}" szálláshelyet? A szálláshoz rendelt vendégek szállása törlődik.`)) {
+      await deleteAccommodation(name);
+    }
+  }
+
   // ── Save handler ──────────────────────────────────────────────────────────────
 
   const handleSave = useCallback(async (updated: Guest) => {
     if (!editContext) return;
-    const { source } = editContext;
+    const { source, isNew } = editContext;
+
+    if (isNew) {
+      if (source === 'teljes') {
+        await addGuest(updated);
+      } else {
+        await addSzallasGuest(updated);
+      }
+      setEditContext(null);
+      return;
+    }
 
     if (source === 'teljes') {
       await saveGuest(updated);
@@ -268,6 +318,7 @@ export default function App() {
                 onExport={() => exportCSV(guests)}
                 onClear={handleClearGuests}
                 importLabel="CSV betöltése"
+                onAddNew={() => setEditContext({ guest: blankGuest(), source: 'teljes', isNew: true })}
               />
               <SearchBar
                 search={teljesSearch}
@@ -287,20 +338,14 @@ export default function App() {
 
         {/* ── SZÁLLÁS TAB ── */}
         {activeTab === 'szallas' && (
-          szallasGuests.length === 0 ? (
-            <EmptyState
-              onImport={handleImportSzallas}
-              title="Töltsd fel a szálláslistát"
-              hint="Elfogadott formátumok: CSV, XLS, XLSX, ODS — Elvárt oszlopok: Létszám · Vendég neve · Visszajelzés · Telefonszám · Érkezés dátuma · Távozás dátuma · Szállás típusa · Szállás neve / helye · Szobaszám · Étkezés · Étkezési korlátozás · Megjegyzés"
-            />
-          ) : (
-            <>
-              <TabToolbar
+          <>
+            <TabToolbar
                 count={szallasGuests.length}
                 onImport={handleImportSzallas}
                 onExport={() => exportSzallasCSV(szallasGuests)}
                 onClear={handleClearSzallas}
                 importLabel="Szállás CSV betöltése"
+                onAddNew={() => setEditContext({ guest: blankGuest(), source: 'szallas', isNew: true })}
               >
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                   <button
@@ -333,6 +378,9 @@ export default function App() {
                   onRoomsChange={handleRoomsChange}
                   onAssignRoom={handleAssignRoom}
                   onEditGuest={(g) => setEditContext({ guest: g, source: 'szallas' })}
+                  onAddAccommodation={handleAddAccommodation}
+                  onRenameAccommodation={handleRenameAccommodation}
+                  onDeleteAccommodation={handleDeleteAccommodation}
                 />
               ) : (
                 <>
@@ -351,8 +399,7 @@ export default function App() {
                   />
                 </>
               )}
-            </>
-          )
+          </>
         )}
       </main>
 

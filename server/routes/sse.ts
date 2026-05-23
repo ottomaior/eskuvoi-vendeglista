@@ -61,9 +61,14 @@ function sendToClient(res: Response, data: unknown): void {
 // ── Load full DB state ────────────────────────────────────────────────────────
 
 export async function loadFullState() {
+  // Order by letszam numerically (CSV row number); fall back to created_at for non-numeric entries
+  const numericOrder = `
+    CASE WHEN letszam ~ '^[0-9]+$' THEN letszam::int ELSE 999999 END,
+    created_at
+  `;
   const [guestsRes, szallasRes, capsRes, roomsRes] = await Promise.all([
-    pool.query('SELECT * FROM guests WHERE source = $1 ORDER BY created_at', ['teljes']),
-    pool.query('SELECT * FROM guests WHERE source = $1 ORDER BY created_at', ['szallas']),
+    pool.query(`SELECT * FROM guests WHERE source = $1 ORDER BY ${numericOrder}`, ['teljes']),
+    pool.query(`SELECT * FROM guests WHERE source = $1 ORDER BY ${numericOrder}`, ['szallas']),
     pool.query('SELECT * FROM capacities'),
     pool.query('SELECT * FROM rooms'),
   ]);
