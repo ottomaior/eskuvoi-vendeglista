@@ -596,6 +596,11 @@ export default function AccommodationView({
     }
   }
 
+  // Also show accommodations that exist in capacities but have no guests yet
+  for (const name of Object.keys(capacities)) {
+    if (!groups.has(name)) groups.set(name, []);
+  }
+
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, 'hu'));
 
   // Total capacity: prefer sum of rooms, else manual capacities
@@ -606,47 +611,18 @@ export default function AccommodationView({
   }, 0);
   const totalOccupied = guests.reduce((s, g) => s + guestHeadcount(g), 0);
 
-  if (guests.length === 0) {
-    return (
-      <div className="space-y-4">
+
+  return (
+    <div className="space-y-4">
+      {guests.length === 0 && sortedGroups.length === 0 && (
         <div className="flex flex-col items-center justify-center py-10 text-gray-400">
           <svg className="w-12 h-12 mb-3 text-autumn-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           <p className="text-sm">Nincsenek szállással rendelkező vendégek</p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {addingAcc ? (
-            <div className="rounded-xl border-2 border-dashed border-autumn-300 bg-[#FFFCF8] p-4 flex flex-col gap-3 shadow-sm">
-              <p className="text-sm font-semibold text-autumn-700">Új szálláshely neve</p>
-              <input
-                ref={newAccInputRef}
-                value={newAccName}
-                onChange={(e) => setNewAccName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmAddAcc(); if (e.key === 'Escape') setAddingAcc(false); }}
-                placeholder="pl. Vendégház..."
-                className="w-full px-3 py-2.5 rounded-lg border border-autumn-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-autumn-400 min-h-[44px]"
-              />
-              <div className="flex gap-2">
-                <button onClick={handleConfirmAddAcc} disabled={!newAccName.trim()} className="flex-1 px-3 py-2.5 rounded-lg bg-autumn-600 text-white text-sm font-medium hover:bg-autumn-700 disabled:opacity-40 transition-colors min-h-[44px]">Hozzáad</button>
-                <button onClick={() => { setAddingAcc(false); setNewAccName(''); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-stone-50 transition-colors min-h-[44px]">Mégse</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setAddingAcc(true)} className="rounded-xl border-2 border-dashed border-autumn-200 bg-[#FFFCF8]/60 hover:bg-autumn-50 hover:border-autumn-300 transition-colors flex flex-col items-center justify-center gap-2 p-6 text-autumn-500 hover:text-autumn-700 min-h-[100px]">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-sm font-medium">Új szálláshely</span>
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="space-y-4">
       {/* Overall summary */}
       {totalMax > 0 && (
         <div className="bg-[#FFFCF8] rounded-xl border border-autumn-200 px-4 py-3 shadow-sm shadow-autumn-200/25">
