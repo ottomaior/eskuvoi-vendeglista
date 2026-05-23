@@ -23,24 +23,22 @@ export interface ColumnDef {
 }
 
 export const FULL_LIST_COLUMNS: ColumnDef[] = [
-  { key: 'letszam', label: 'Létszám', width: 'w-16' },
+  { key: 'letszam', label: 'Sorszám', width: 'w-16' },
   { key: 'vendegNeve', label: 'Vendég neve', width: 'w-48' },
   { key: 'meghivoElkuldve', label: 'Meghívó elküldve?', width: 'w-36' },
   { key: 'visszajelzes', label: 'Visszajelzés', width: 'w-32' },
   { key: 'telefonszam', label: 'Telefonszám', width: 'w-36' },
-  { key: 'erkezesDatuma', label: 'Érkezés dátuma', width: 'w-36' },
-  { key: 'tavozasDatuma', label: 'Távozás dátuma', width: 'w-36' },
-  { key: 'szallasTypusa', label: 'Szállás típusa', width: 'w-36' },
-  { key: 'szallasNeve', label: 'Szállás neve / helye', width: 'w-48' },
+  { key: 'szallasTypusa', label: 'Szállás', width: 'w-36' },
+  { key: 'szallasNeve', label: 'Szállás neve', width: 'w-48' },
   { key: 'szobaszam', label: 'Szobaszám', width: 'w-28' },
   { key: 'etkezes', label: 'Étkezés', width: 'w-28' },
   { key: 'etkezesiKorlatozas', label: 'Étkezési korlátozás', width: 'w-44' },
-  { key: 'ultetesiRend', label: 'Ültetési rend (asztal)', width: 'w-40' },
+  { key: 'ultetesiRend', label: 'Ültetési rend', width: 'w-40' },
   { key: 'megjegyzes', label: 'Megjegyzés', width: 'w-48' },
 ];
 
 export const SZALLAS_COLUMNS: ColumnDef[] = [
-  { key: 'letszam', label: 'Létszám', width: 'w-16' },
+  { key: 'letszam', label: 'Sorszám', width: 'w-16' },
   { key: 'vendegNeve', label: 'Vendég neve', width: 'w-48' },
   { key: 'telefonszam', label: 'Telefonszám', width: 'w-36' },
   { key: 'erkezesDatuma', label: 'Érkezés dátuma', width: 'w-36' },
@@ -54,36 +52,42 @@ export const SZALLAS_COLUMNS: ColumnDef[] = [
 ];
 
 export const CSV_HEADER_MAP: Record<string, keyof Omit<Guest, 'id'>> = {
-  'Létszám': 'letszam',
+  // Current column names
+  'Sorszám': 'letszam',
   'Vendég neve': 'vendegNeve',
   'Meghívó elküldve?': 'meghivoElkuldve',
   'Visszajelzés': 'visszajelzes',
   'Telefonszám': 'telefonszam',
+  'Szállás': 'szallasTypusa',
+  'Szállás neve': 'szallasNeve',
+  'Szobaszám': 'szobaszam',
+  'Étkezés': 'etkezes',
+  'Étkezési korlátozás': 'etkezesiKorlatozas',
+  'Ültetési rend': 'ultetesiRend',
+  'Megjegyzés': 'megjegyzes',
+  // Legacy column names (backward compat with old CSV files)
+  'Létszám': 'letszam',
   'Érkezés dátuma': 'erkezesDatuma',
   'Távozás dátuma': 'tavozasDatuma',
   'Szállás típusa': 'szallasTypusa',
   'Szállás neve / helye': 'szallasNeve',
-  'Szobaszám': 'szobaszam',
-  'Étkezés': 'etkezes',
-  'Étkezési korlátozás': 'etkezesiKorlatozas',
   'Ültetési rend (asztal)': 'ultetesiRend',
-  'Megjegyzés': 'megjegyzes',
 };
 
 export const CSV_REVERSE_MAP: Record<keyof Omit<Guest, 'id'>, string> = {
-  letszam: 'Létszám',
+  letszam: 'Sorszám',
   vendegNeve: 'Vendég neve',
   meghivoElkuldve: 'Meghívó elküldve?',
   visszajelzes: 'Visszajelzés',
   telefonszam: 'Telefonszám',
   erkezesDatuma: 'Érkezés dátuma',
   tavozasDatuma: 'Távozás dátuma',
-  szallasTypusa: 'Szállás típusa',
-  szallasNeve: 'Szállás neve / helye',
+  szallasTypusa: 'Szállás',
+  szallasNeve: 'Szállás neve',
   szobaszam: 'Szobaszám',
   etkezes: 'Étkezés',
   etkezesiKorlatozas: 'Étkezési korlátozás',
-  ultetesiRend: 'Ültetési rend (asztal)',
+  ultetesiRend: 'Ültetési rend',
   megjegyzes: 'Megjegyzés',
 };
 
