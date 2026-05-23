@@ -1,11 +1,19 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Guest } from './types';
 import { FULL_LIST_COLUMNS, SZALLAS_COLUMNS, SHARED_FIELD_KEYS } from './types';
 import { parseFile, parseSzallasFile, exportCSV, exportSzallasCSV } from './utils/csv';
-import { loadGuests, saveGuests, loadSzallasGuests, saveSzallasGuests } from './utils/storage';
-import { loadCapacities, saveCapacities } from './utils/capacity';
-import { loadRooms, saveRooms } from './utils/rooms';
 import type { RoomDef } from './utils/rooms';
+import {
+  getToken,
+  importGuests,
+  saveGuest,
+  clearGuests,
+  importSzallas,
+  saveSzallasGuest,
+  clearSzallas,
+  saveCapacity,
+  saveRoomsForAcc,
+} from './utils/api';
 import Header from './components/Header';
 import TabBar from './components/TabBar';
 import type { TabId } from './components/TabBar';
@@ -15,21 +23,17 @@ import StatsBar from './components/StatsBar';
 import SearchBar from './components/SearchBar';
 import AccommodationView from './components/AccommodationView';
 import EditModal from './components/EditModal';
+import LoginScreen from './components/LoginScreen';
 
 type EditContext = { guest: Guest; source: TabId };
 type SzallasViewMode = 'cards' | 'table';
 
-function syncToOtherList(saved: Guest, otherList: Guest[]): Guest[] {
-  const nameLower = saved.vendegNeve.trim().toLowerCase();
-  if (!nameLower) return otherList;
-  return otherList.map((g) => {
-    if (g.vendegNeve.trim().toLowerCase() !== nameLower) return g;
-    const synced = { ...g };
-    for (const key of SHARED_FIELD_KEYS) {
-      (synced as Record<string, string>)[key] = saved[key] ?? '';
-    }
-    return synced;
-  });
+// Full state shape pushed over SSE
+interface ServerState {
+  guests: Guest[];
+  szallasGuests: Guest[];
+  capacities: Record<string, number>;
+  rooms: Record<string, RoomDef[]>;
 }
 
 function applyFilters(list: Guest[], search: string, rsvp: string): Guest[] {
@@ -46,32 +50,54 @@ function applyFilters(list: Guest[], search: string, rsvp: string): Guest[] {
 }
 
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(() => !!getToken());
   const [guests, setGuests] = useState<Guest[]>([]);
   const [szallasGuests, setSzallasGuests] = useState<Guest[]>([]);
+  const [capacities, setCapacities] = useState<Record<string, number>>({});
+  const [rooms, setRooms] = useState<Record<string, RoomDef[]>>({});
   const [activeTab, setActiveTab] = useState<TabId>('teljes');
   const [editContext, setEditContext] = useState<EditContext | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [szallasView, setSzallasView] = useState<SzallasViewMode>('cards');
 
-  // Per-tab search/filter
   const [teljesSearch, setTeljesSearch] = useState('');
   const [teljesRsvp, setTeljesRsvp] = useState('');
   const [szallasSearch, setSzallasSearch] = useState('');
   const [szallasRsvp, setSzallasRsvp] = useState('');
 
-  // Szállás tab view toggle
-  const [szallasView, setSzallasView] = useState<SzallasViewMode>('cards');
+  const sseRef = useRef<EventSource | null>(null);
 
-  // Accommodation capacities (manual fallback)
-  const [capacities, setCapacities] = useState<Record<string, number>>({});
-  // Room definitions per accommodation
-  const [rooms, setRooms] = useState<Record<string, RoomDef[]>>({});
+  // ── SSE connection ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    setGuests(loadGuests());
-    setSzallasGuests(loadSzallasGuests());
-    setCapacities(loadCapacities());
-    setRooms(loadRooms());
-  }, []);
+    if (!loggedIn) return;
+    const token = getToken();
+    if (!token) return;
+
+    function connect() {
+      const es = new EventSource(`/api/events?token=${encodeURIComponent(token!)}`);
+      sseRef.current = es;
+
+      es.onmessage = (e) => {
+        const state = JSON.parse(e.data as string) as ServerState;
+        setGuests(state.guests);
+        setSzallasGuests(state.szallasGuests);
+        setCapacities(state.capacities);
+        setRooms(state.rooms);
+      };
+
+      es.onerror = () => {
+        es.close();
+        // Reconnect after 3s
+        setTimeout(connect, 3000);
+      };
+    }
+
+    connect();
+    return () => sseRef.current?.close();
+  }, [loggedIn]);
+
+  // ── Derived state ─────────────────────────────────────────────────────────────
 
   const filteredGuests = useMemo(
     () => applyFilters(guests, teljesSearch, teljesRsvp),
@@ -88,107 +114,116 @@ export default function App() {
     [guests]
   );
 
-  // ── Import handlers ──────────────────────────────────────────────────────────
+  // ── Import handlers ───────────────────────────────────────────────────────────
 
   async function handleImportGuests(file: File) {
-    await doImport(file, (parsed) => { setGuests(parsed); saveGuests(parsed); });
+    setImportError(null);
+    try {
+      const parsed = await parseFile(file);
+      await importGuests(parsed);
+      // State will be updated via SSE broadcast
+    } catch (err) {
+      console.error(err);
+      setImportError('A fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
+    }
   }
 
   async function handleImportSzallas(file: File) {
     setImportError(null);
     try {
       const { guests: parsed, capacities: importedCaps } = await parseSzallasFile(file);
-      setSzallasGuests(parsed);
-      saveSzallasGuests(parsed);
-      if (Object.keys(importedCaps).length > 0) {
-        setCapacities((prev) => {
-          const next = { ...prev, ...importedCaps };
-          saveCapacities(next);
-          return next;
-        });
+      await importSzallas(parsed);
+      for (const [name, maxSlots] of Object.entries(importedCaps)) {
+        await saveCapacity(name, maxSlots);
       }
+      // State will be updated via SSE broadcast
     } catch (err) {
       console.error(err);
-      setImportError('A CSV fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
+      setImportError('A fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
     }
   }
 
-  async function doImport(file: File, apply: (parsed: Guest[]) => void) {
-    setImportError(null);
-    try {
-      apply(await parseFile(file));
-    } catch (err) {
-      console.error(err);
-      setImportError('A CSV fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
-    }
-  }
+  // ── Clear handlers ────────────────────────────────────────────────────────────
 
-  // ── Clear handlers ───────────────────────────────────────────────────────────
-
-  function handleClearGuests() {
+  async function handleClearGuests() {
     if (window.confirm('Biztosan törli a Teljes lista összes vendégét?')) {
-      setGuests([]); saveGuests([]);
+      await clearGuests();
     }
   }
 
-  function handleClearSzallas() {
+  async function handleClearSzallas() {
     if (window.confirm('Biztosan törli a Szállás lista összes vendégét?')) {
-      setSzallasGuests([]); saveSzallasGuests([]);
+      await clearSzallas();
     }
   }
 
-  // ── Capacity change ──────────────────────────────────────────────────────────
+  // ── Capacity / rooms change ───────────────────────────────────────────────────
 
-  function handleCapacityChange(name: string, max: number) {
-    setCapacities((prev) => {
-      const next = { ...prev, [name]: max };
-      saveCapacities(next);
-      return next;
-    });
+  async function handleCapacityChange(name: string, max: number) {
+    await saveCapacity(name, max);
   }
 
-  function handleRoomsChange(accName: string, updatedRooms: RoomDef[]) {
-    setRooms((prev) => {
-      const next = { ...prev, [accName]: updatedRooms };
-      saveRooms(next);
-      return next;
-    });
+  async function handleRoomsChange(accName: string, updatedRooms: RoomDef[]) {
+    await saveRoomsForAcc(accName, updatedRooms);
   }
 
-  function handleAssignRoom(guestId: string, roomName: string) {
-    setSzallasGuests((prev) => {
-      const next = prev.map((g) => g.id === guestId ? { ...g, szobaszam: roomName } : g);
-      saveSzallasGuests(next);
-      const updated = next.find((g) => g.id === guestId);
-      if (updated) {
-        setGuests((gp) => {
-          const gn = syncToOtherList(updated, gp);
-          saveGuests(gn);
-          return gn;
-        });
-      }
-      return next;
-    });
+  async function handleAssignRoom(guestId: string, roomName: string) {
+    const guest = szallasGuests.find((g) => g.id === guestId);
+    if (!guest) return;
+    const updated = { ...guest, szobaszam: roomName };
+    await saveSzallasGuest(updated);
+    // Also sync to teljes list if a matching guest exists there
+    const teljesMatch = guests.find(
+      (g) => g.vendegNeve.trim().toLowerCase() === updated.vendegNeve.trim().toLowerCase()
+    );
+    if (teljesMatch) {
+      await saveGuest({ ...teljesMatch, szobaszam: roomName });
+    }
   }
 
-  // ── Save handler (with cross-list sync) ──────────────────────────────────────
+  // ── Save handler ──────────────────────────────────────────────────────────────
 
-  const handleSave = useCallback((updated: Guest) => {
+  const handleSave = useCallback(async (updated: Guest) => {
     if (!editContext) return;
     const { source } = editContext;
 
     if (source === 'teljes') {
-      setGuests((prev) => { const n = prev.map((g) => (g.id === updated.id ? updated : g)); saveGuests(n); return n; });
-      setSzallasGuests((prev) => { const n = syncToOtherList(updated, prev); saveSzallasGuests(n); return n; });
+      await saveGuest(updated);
+      // Sync to szallas list if matching guest exists
+      const szallasMatch = szallasGuests.find(
+        (g) => g.vendegNeve.trim().toLowerCase() === updated.vendegNeve.trim().toLowerCase()
+      );
+      if (szallasMatch) {
+        const synced = { ...szallasMatch };
+        for (const key of SHARED_FIELD_KEYS) {
+          (synced as Record<string, string>)[key] = updated[key] ?? '';
+        }
+        await saveSzallasGuest(synced);
+      }
     } else {
-      setSzallasGuests((prev) => { const n = prev.map((g) => (g.id === updated.id ? updated : g)); saveSzallasGuests(n); return n; });
-      setGuests((prev) => { const n = syncToOtherList(updated, prev); saveGuests(n); return n; });
+      await saveSzallasGuest(updated);
+      const teljesMatch = guests.find(
+        (g) => g.vendegNeve.trim().toLowerCase() === updated.vendegNeve.trim().toLowerCase()
+      );
+      if (teljesMatch) {
+        const synced = { ...teljesMatch };
+        for (const key of SHARED_FIELD_KEYS) {
+          (synced as Record<string, string>)[key] = updated[key] ?? '';
+        }
+        await saveGuest(synced);
+      }
     }
 
     setEditContext(null);
-  }, [editContext]);
+  }, [editContext, guests, szallasGuests]);
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Login gate ────────────────────────────────────────────────────────────────
+
+  if (!loggedIn) {
+    return <LoginScreen onSuccess={() => setLoggedIn(true)} />;
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex flex-col bg-autumn-50/60">
@@ -267,7 +302,6 @@ export default function App() {
                 onClear={handleClearSzallas}
                 importLabel="Szállás CSV betöltése"
               >
-                {/* View mode toggle */}
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                   <button
                     onClick={() => setSzallasView('cards')}
@@ -331,6 +365,8 @@ export default function App() {
     </div>
   );
 }
+
+// ── Empty state upload widget ─────────────────────────────────────────────────
 
 function EmptyState({
   onImport,
