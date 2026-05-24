@@ -24,8 +24,207 @@
   h1 {
     font-family: 'Playfair Display', Georgia, serif;
   }
+
+  .dark body {
+    background-color: #1c1917;
+    color: #d6d3d1;
+  }
 }
 
 .font-display {
   font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* ── Dark mode via .dark class on <html> ─────────────────────────────────────── */
+@variant dark (&:where(.dark, .dark *));
+
+/* ── Toast slide-in animation ───────────────────────────────────────────────── */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(2rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Tab content slide animation ────────────────────────────────────────────── */
+
+@keyframes tab-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-tab-in {
+  animation: tab-slide-in 0.18s ease-out both;
+}
+
+/* ── Print styles ────────────────────────────────────────────────────────────── */
+
+@media print {
+  /* Hide everything outside the printable content */
+  body > * { display: none !important; }
+  .print-content { display: block !important; }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 15mm 12mm;
+  }
+}
+
+/* ── Print content styles (visible in modal + actual print) ──────────────────── */
+
+.print-content {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  color: #1c1917;
+  line-height: 1.5;
+}
+
+.print-header {
+  margin-bottom: 24px;
+  border-bottom: 2px solid #A67C52;
+  padding-bottom: 12px;
+}
+
+.print-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #6F4F35;
+  margin: 0 0 4px;
+}
+
+.print-date {
+  font-size: 11px;
+  color: #78716c;
+  margin: 0;
+}
+
+.print-summary {
+  font-size: 13px;
+  color: #44403c;
+  margin: 6px 0 0;
+  font-weight: 500;
+}
+
+.print-acc-section {
+  page-break-inside: avoid;
+  margin-bottom: 28px;
+}
+
+.print-acc-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px solid #D4C4B0;
+}
+
+.print-acc-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6F4F35;
+  margin: 0;
+}
+
+.print-acc-meta {
+  font-size: 11px;
+  color: #78716c;
+}
+
+.print-room {
+  margin-bottom: 14px;
+  page-break-inside: avoid;
+}
+
+.print-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.print-room-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #44403c;
+  background: #F5EDE3;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.print-room-unassigned {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.print-room-cap {
+  font-size: 11px;
+  color: #78716c;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.print-table th {
+  background: #F5EDE3;
+  color: #6F4F35;
+  font-weight: 600;
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid #D4C4B0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.print-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #F5EDE3;
+  vertical-align: top;
+}
+
+.print-table tr:last-child td {
+  border-bottom: none;
+}
+
+.print-catering {
+  page-break-before: always;
+  margin-top: 24px;
+}
+
+.print-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6F4F35;
+  margin: 0 0 4px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid #D4C4B0;
+}
+
+.print-section-sub {
+  font-size: 11px;
+  color: #78716c;
+  margin: 0 0 10px;
+}
+
+.print-catering-table th:nth-child(2),
+.print-catering-table td:nth-child(2) {
+  width: 60px;
+}
+
+.print-total-row td {
+  border-top: 1.5px solid #D4C4B0 !important;
+  padding-top: 6px;
+  background: #F5EDE3;
 }

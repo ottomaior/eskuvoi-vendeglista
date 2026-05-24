@@ -1,8 +1,37 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Guest } from '../types';
 
 interface StatsBarProps {
   guests: Guest[];
   szallasCount: number;
+}
+
+// ── Animated counter ──────────────────────────────────────────────────────────
+
+function useCountUp(target: number, duration = 600) {
+  const [display, setDisplay] = useState(target);
+  const prevRef = useRef(target);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const from = prevRef.current;
+    const to = target;
+    prevRef.current = to;
+    if (from === to) return;
+
+    let start: number | null = null;
+    function step(ts: number) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(from + (to - from) * ease));
+      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+    }
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  return display;
 }
 
 interface StatCard {
@@ -15,6 +44,16 @@ interface StatCard {
 }
 
 export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('eskuvoi-stats-collapsed') === 'true'; } catch { return false; }
+  });
+
+  function toggleCollapse() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem('eskuvoi-stats-collapsed', String(next)); } catch { /* noop */ }
+  }
+
   const total = guests.length;
   const igen = guests.filter((g) => g.visszajelzes?.toLowerCase().trim() === 'igen').length;
   const nem = guests.filter((g) => {
@@ -22,10 +61,15 @@ export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
     return v === 'nem' || v === 'talán' || v === 'talan' || v === 'várakozás' || v === 'varakozas' || !v;
   }).length;
 
+  const animTotal = useCountUp(total);
+  const animIgen = useCountUp(igen);
+  const animNem = useCountUp(nem);
+  const animSzallas = useCountUp(szallasCount);
+
   const cards: StatCard[] = [
     {
       label: 'Vendég',
-      value: total,
+      value: animTotal,
       color: 'text-autumn-700',
       bgColor: 'bg-autumn-50',
       borderColor: 'border-autumn-200',
@@ -37,7 +81,7 @@ export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
     },
     {
       label: 'Visszajelzett',
-      value: igen,
+      value: animIgen,
       color: 'text-emerald-700',
       bgColor: 'bg-emerald-50',
       borderColor: 'border-emerald-200',
@@ -49,7 +93,7 @@ export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
     },
     {
       label: 'Várakozik / Nem',
-      value: nem,
+      value: animNem,
       color: 'text-amber-700',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
@@ -61,7 +105,7 @@ export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
     },
     {
       label: 'Szállást igényel',
-      value: szallasCount,
+      value: animSzallas,
       color: 'text-blue-700',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
@@ -74,21 +118,44 @@ export default function StatsBar({ guests, szallasCount }: StatsBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-sm shadow-autumn-200/20 ${card.bgColor} ${card.borderColor} bg-[#FFFCF8]`}
+    <div className="mb-5">
+      {/* Collapse toggle */}
+      <button
+        onClick={toggleCollapse}
+        className="w-full flex items-center justify-between text-xs text-stone-400 hover:text-autumn-600 transition-colors py-1 mb-2 group"
+      >
+        <span className="font-medium group-hover:text-autumn-600">
+          {collapsed
+            ? `${animTotal} vendég · ${animIgen} visszajelzett · ${animSzallas} szállás`
+            : 'Összefoglaló'}
+        </span>
+        <svg
+          className={`w-4 h-4 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
-          <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${card.bgColor}`}>
-            {card.icon}
-          </div>
-          <div className="min-w-0">
-            <p className={`text-2xl font-semibold leading-none ${card.color}`}>{card.value}</p>
-            <p className="text-xs text-stone-500 mt-0.5 leading-tight line-clamp-2">{card.label}</p>
-          </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Cards */}
+      {!collapsed && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {cards.map((card) => (
+            <div
+              key={card.label}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-sm shadow-autumn-200/20 ${card.bgColor} ${card.borderColor} bg-[#FFFCF8]`}
+            >
+              <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${card.bgColor}`}>
+                {card.icon}
+              </div>
+              <div className="min-w-0">
+                <p className={`text-2xl font-semibold leading-none tabular-nums ${card.color}`}>{card.value}</p>
+                <p className="text-xs text-stone-500 mt-0.5 leading-tight line-clamp-2">{card.label}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

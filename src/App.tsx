@@ -19,7 +19,9 @@ import {
   renameAccommodation,
   deleteAccommodation,
   saveRoomsForAcc,
+  postLog,
 } from './utils/api';
+import { useToast } from './hooks/useToast';
 import Header from './components/Header';
 import TabBar from './components/TabBar';
 import type { TabId } from './components/TabBar';
@@ -30,6 +32,13 @@ import SearchBar from './components/SearchBar';
 import AccommodationView from './components/AccommodationView';
 import EditModal from './components/EditModal';
 import LoginScreen from './components/LoginScreen';
+import ToastContainer from './components/ToastContainer';
+import DashboardView from './components/DashboardView';
+import PrintView from './components/PrintView';
+import ActivityLog from './components/ActivityLog';
+import BatchActionBar from './components/BatchActionBar';
+import KanbanView from './components/KanbanView';
+import SeatingView from './components/SeatingView';
 
 type EditContext = { guest: Guest; source: TabId; isNew?: boolean };
 type SzallasViewMode = 'cards' | 'table';
@@ -59,10 +68,10 @@ function blankGuest(letszam = '1'): Guest {
     etkezesiKorlatozas: '',
     ultetesiRend: '',
     megjegyzes: '',
+    csoportNev: '',
   };
 }
 
-// Full state shape pushed over SSE
 interface ServerState {
   guests: Guest[];
   szallasGuests: Guest[];
@@ -83,6 +92,21 @@ function applyFilters(list: Guest[], search: string, rsvp: string): Guest[] {
   });
 }
 
+// ── Dark mode ─────────────────────────────────────────────────────────────────
+
+function useDarkMode() {
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem('eskuvoi-dark') === 'true'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    try { localStorage.setItem('eskuvoi-dark', String(dark)); } catch { /* noop */ }
+  }, [dark]);
+
+  return { dark, toggle: () => setDark((d) => !d) };
+}
+
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => !!getToken());
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -93,6 +117,9 @@ export default function App() {
   const [editContext, setEditContext] = useState<EditContext | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [szallasView, setSzallasView] = useState<SzallasViewMode>('cards');
+  const [showPrint, setShowPrint] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [teljesSearch, setTeljesSearch] = useState('');
   const [teljesRsvp, setTeljesRsvp] = useState('');
@@ -100,6 +127,10 @@ export default function App() {
   const [szallasRsvp, setSzallasRsvp] = useState('');
 
   const sseRef = useRef<EventSource | null>(null);
+  const undoRef = useRef<{ guest: Guest; source: 'teljes' | 'szallas' } | null>(null);
+
+  const { toasts, addToast, removeToast } = useToast();
+  const { dark, toggle: toggleDark } = useDarkMode();
 
   // ── SSE connection ────────────────────────────────────────────────────────────
 
@@ -122,7 +153,6 @@ export default function App() {
 
       es.onerror = () => {
         es.close();
-        // Reconnect after 3s
         setTimeout(connect, 3000);
       };
     }
@@ -148,6 +178,13 @@ export default function App() {
     [guests]
   );
 
+  // ── Tab change (clear selection) ──────────────────────────────────────────────
+
+  function handleTabChange(tab: TabId) {
+    setActiveTab(tab);
+    setSelectedIds(new Set());
+  }
+
   // ── Import handlers ───────────────────────────────────────────────────────────
 
   async function handleImportGuests(file: File) {
@@ -155,10 +192,12 @@ export default function App() {
     try {
       const parsed = await parseFile(file);
       await importGuests(parsed);
-      // State will be updated via SSE broadcast
+      addToast(`Import kész — ${parsed.length} vendég betöltve`, 'success');
+      await postLog('import', '', '', '', String(parsed.length));
     } catch (err) {
       console.error(err);
       setImportError('A fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
+      addToast('A fájl betöltése sikertelen', 'error');
     }
   }
 
@@ -170,25 +209,29 @@ export default function App() {
       for (const [name, maxSlots] of Object.entries(importedCaps)) {
         await saveCapacity(name, maxSlots);
       }
-      // State will be updated via SSE broadcast
+      addToast(`Szállás import kész — ${parsed.length} vendég betöltve`, 'success');
+      await postLog('import', 'Szállás', '', '', String(parsed.length));
     } catch (err) {
       console.error(err);
       setImportError('A fájl betöltése sikertelen. Kérjük ellenőrizze a formátumot.');
+      addToast('A fájl betöltése sikertelen', 'error');
     }
   }
 
   // ── Clear handlers ────────────────────────────────────────────────────────────
 
   async function handleClearGuests() {
-    if (window.confirm('Biztosan törli a Teljes lista összes vendégét?')) {
-      await clearGuests();
-    }
+    if (!window.confirm('Biztosan törli a Teljes lista összes vendégét?')) return;
+    await clearGuests();
+    addToast('Teljes lista törölve', 'warning');
+    await postLog('clear', 'Teljes lista');
   }
 
   async function handleClearSzallas() {
-    if (window.confirm('Biztosan törli a Szállás lista összes vendégét?')) {
-      await clearSzallas();
-    }
+    if (!window.confirm('Biztosan törli a Szállás lista összes vendégét?')) return;
+    await clearSzallas();
+    addToast('Szállás lista törölve', 'warning');
+    await postLog('clear', 'Szállás lista');
   }
 
   // ── Capacity / rooms change ───────────────────────────────────────────────────
@@ -206,7 +249,6 @@ export default function App() {
     if (!guest) return;
     const updated = { ...guest, szobaszam: roomName };
     await saveSzallasGuest(updated);
-    // Also sync to teljes list if a matching guest exists there
     const teljesMatch = guests.find(
       (g) => g.vendegNeve.trim().toLowerCase() === updated.vendegNeve.trim().toLowerCase()
     );
@@ -224,9 +266,8 @@ export default function App() {
   }
 
   async function handleDeleteAccommodation(name: string) {
-    if (window.confirm(`Biztosan törli a(z) „${name}" szálláshelyet? A szálláshoz rendelt vendégek szállása törlődik.`)) {
-      await deleteAccommodation(name);
-    }
+    if (!window.confirm(`Biztosan törli a(z) „${name}" szálláshelyet? A szálláshoz rendelt vendégek szállása törlődik.`)) return;
+    await deleteAccommodation(name);
   }
 
   // ── Save handler ──────────────────────────────────────────────────────────────
@@ -238,16 +279,25 @@ export default function App() {
     if (isNew) {
       if (source === 'teljes') {
         await addGuest(updated);
+        addToast(`${updated.vendegNeve || 'Vendég'} hozzáadva`, 'success');
+        await postLog('add', updated.vendegNeve);
       } else {
         await addSzallasGuest(updated);
+        addToast(`${updated.vendegNeve || 'Vendég'} hozzáadva a szálláshoz`, 'success');
+        await postLog('add', updated.vendegNeve);
       }
       setEditContext(null);
       return;
     }
 
+    // Store previous for undo
+    const prev = source === 'teljes'
+      ? guests.find((g) => g.id === updated.id)
+      : szallasGuests.find((g) => g.id === updated.id);
+    if (prev) undoRef.current = { guest: prev, source: source as 'teljes' | 'szallas' };
+
     if (source === 'teljes') {
       await saveGuest(updated);
-      // Sync to szallas list if matching guest exists
       const szallasMatch = szallasGuests.find(
         (g) => g.vendegNeve.trim().toLowerCase() === updated.vendegNeve.trim().toLowerCase()
       );
@@ -272,8 +322,79 @@ export default function App() {
       }
     }
 
+    await postLog('save', updated.vendegNeve);
+
+    addToast(`${updated.vendegNeve || 'Vendég'} mentve`, 'success', {
+      action: {
+        label: 'Visszavonás',
+        onClick: handleUndo,
+      },
+      duration: 8000,
+    });
+
     setEditContext(null);
-  }, [editContext, guests, szallasGuests]);
+  }, [editContext, guests, szallasGuests, addToast]);
+
+  // ── Undo ─────────────────────────────────────────────────────────────────────
+
+  async function handleUndo() {
+    const entry = undoRef.current;
+    if (!entry) return;
+    undoRef.current = null;
+    if (entry.source === 'teljes') {
+      await saveGuest(entry.guest);
+    } else {
+      await saveSzallasGuest(entry.guest);
+    }
+    addToast('Módosítás visszavonva', 'info');
+  }
+
+  // ── Batch edit ────────────────────────────────────────────────────────────────
+
+  async function handleBatchRsvp(value: string) {
+    const list = activeTab === 'teljes' ? guests : szallasGuests;
+    const selected = list.filter((g) => selectedIds.has(g.id));
+    await Promise.all(
+      selected.map((g) =>
+        activeTab === 'teljes'
+          ? saveGuest({ ...g, visszajelzes: value })
+          : saveSzallasGuest({ ...g, visszajelzes: value })
+      )
+    );
+    await postLog('batch', `${selected.length} vendég`, 'visszajelzes', '', value);
+    addToast(`${selected.length} vendég visszajelzése: ${value}`, 'success');
+    setSelectedIds(new Set());
+  }
+
+  async function handleBatchGroup(value: string) {
+    const list = activeTab === 'teljes' ? guests : szallasGuests;
+    const selected = list.filter((g) => selectedIds.has(g.id));
+    await Promise.all(
+      selected.map((g) =>
+        activeTab === 'teljes'
+          ? saveGuest({ ...g, csoportNev: value })
+          : saveSzallasGuest({ ...g, csoportNev: value })
+      )
+    );
+    addToast(`${selected.length} vendég csoportja: ${value || '(törölve)'}`, 'success');
+    setSelectedIds(new Set());
+  }
+
+  // ── RSVP update (from Kanban) ─────────────────────────────────────────────────
+
+  async function handleUpdateRsvp(guestId: string, newRsvp: string) {
+    const guest = guests.find((g) => g.id === guestId);
+    if (!guest) return;
+    await saveGuest({ ...guest, visszajelzes: newRsvp });
+    await postLog('rsvp', guest.vendegNeve, 'visszajelzes', guest.visszajelzes, newRsvp);
+    addToast(`${guest.vendegNeve}: visszajelzés → ${newRsvp || 'törölve'}`, 'info');
+  }
+
+  // ── Seating update ────────────────────────────────────────────────────────────
+
+  async function handleUpdateSeating(updated: Guest) {
+    await saveGuest(updated);
+  }
 
   // ── Login gate ────────────────────────────────────────────────────────────────
 
@@ -283,17 +404,25 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  const showBatchBar = selectedIds.size > 0 && (activeTab === 'teljes' || activeTab === 'szallas');
+
   return (
-    <div className="min-h-screen flex flex-col bg-autumn-50/60">
-      <Header guestCount={guests.length} szallasCount={szallasGuests.length} />
+    <div className="min-h-screen flex flex-col bg-autumn-50/60 dark:bg-stone-950">
+      <Header
+        guestCount={guests.length}
+        szallasCount={szallasGuests.length}
+        darkMode={dark}
+        onToggleDark={toggleDark}
+        onOpenLog={() => setShowLog(true)}
+      />
       <TabBar
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
         guestCount={guests.length}
         szallasCount={szallasGuests.length}
       />
 
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-6">
+      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-6 animate-tab-in">
         {importError && (
           <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
             <svg className="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -339,6 +468,8 @@ export default function App() {
                 guests={filteredGuests}
                 columns={FULL_LIST_COLUMNS}
                 onEditGuest={(g) => setEditContext({ guest: g, source: 'teljes' })}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
             </>
           )
@@ -348,75 +479,154 @@ export default function App() {
         {activeTab === 'szallas' && (
           <>
             <TabToolbar
-                count={szallasGuests.length}
-                onImport={handleImportSzallas}
-                onExport={() => exportSzallasCSV(szallasGuests)}
-                onClear={handleClearSzallas}
-                importLabel="Szállás CSV betöltése"
-                onAddNew={() => setEditContext({ guest: blankGuest(nextLetszam(szallasGuests)), source: 'szallas', isNew: true })}
+              count={szallasGuests.length}
+              onImport={handleImportSzallas}
+              onExport={() => exportSzallasCSV(szallasGuests)}
+              onClear={handleClearSzallas}
+              importLabel="Szállás CSV betöltése"
+              onAddNew={() => setEditContext({ guest: blankGuest(nextLetszam(szallasGuests)), source: 'szallas', isNew: true })}
+            >
+              <button
+                onClick={() => setShowPrint(true)}
+                disabled={szallasGuests.length === 0}
+                title="Szállás összesítő nyomtatása"
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg bg-[#FFFCF8] text-autumn-700 border border-autumn-200 hover:bg-autumn-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
               >
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                  <button
-                    onClick={() => setSzallasView('cards')}
-                    title="Kártyás nézet"
-                    className={`px-3 py-2.5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${szallasView === 'cards' ? 'bg-autumn-600 text-white' : 'bg-[#FFFCF8] text-stone-500 hover:bg-stone-50'}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setSzallasView('table')}
-                    title="Táblázatos nézet"
-                    className={`px-3 py-2.5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${szallasView === 'table' ? 'bg-autumn-600 text-white' : 'bg-[#FFFCF8] text-stone-500 hover:bg-stone-50'}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
-              </TabToolbar>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span className="hidden sm:inline">Nyomtatás</span>
+              </button>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setSzallasView('cards')}
+                  title="Kártyás nézet"
+                  className={`px-3 py-2.5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${szallasView === 'cards' ? 'bg-autumn-600 text-white' : 'bg-[#FFFCF8] text-stone-500 hover:bg-stone-50'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setSzallasView('table')}
+                  title="Táblázatos nézet"
+                  className={`px-3 py-2.5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${szallasView === 'table' ? 'bg-autumn-600 text-white' : 'bg-[#FFFCF8] text-stone-500 hover:bg-stone-50'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+            </TabToolbar>
 
-              {szallasView === 'cards' ? (
-                <AccommodationView
-                  guests={szallasGuests}
-                  capacities={capacities}
-                  onCapacityChange={handleCapacityChange}
-                  rooms={rooms}
-                  onRoomsChange={handleRoomsChange}
-                  onAssignRoom={handleAssignRoom}
-                  onEditGuest={(g) => setEditContext({ guest: g, source: 'szallas' })}
-                  onAddAccommodation={handleAddAccommodation}
-                  onRenameAccommodation={handleRenameAccommodation}
-                  onDeleteAccommodation={handleDeleteAccommodation}
+            {szallasView === 'cards' ? (
+              <AccommodationView
+                guests={szallasGuests}
+                capacities={capacities}
+                onCapacityChange={handleCapacityChange}
+                rooms={rooms}
+                onRoomsChange={handleRoomsChange}
+                onAssignRoom={handleAssignRoom}
+                onEditGuest={(g) => setEditContext({ guest: g, source: 'szallas' })}
+                onAddAccommodation={handleAddAccommodation}
+                onRenameAccommodation={handleRenameAccommodation}
+                onDeleteAccommodation={handleDeleteAccommodation}
+              />
+            ) : (
+              <>
+                <SearchBar
+                  search={szallasSearch}
+                  filterRsvp={szallasRsvp}
+                  resultCount={filteredSzallas.length}
+                  onSearchChange={setSzallasSearch}
+                  onFilterChange={setSzallasRsvp}
                 />
-              ) : (
-                <>
-                  <SearchBar
-                    search={szallasSearch}
-                    filterRsvp={szallasRsvp}
-                    resultCount={filteredSzallas.length}
-                    onSearchChange={setSzallasSearch}
-                    onFilterChange={setSzallasRsvp}
-                  />
-                  <GuestTable
-                    guests={filteredSzallas}
-                    columns={SZALLAS_COLUMNS}
-                    onEditGuest={(g) => setEditContext({ guest: g, source: 'szallas' })}
-                    emptyMessage="Nincsenek szállást igénylő vendégek"
-                  />
-                </>
-              )}
+                <GuestTable
+                  guests={filteredSzallas}
+                  columns={SZALLAS_COLUMNS}
+                  onEditGuest={(g) => setEditContext({ guest: g, source: 'szallas' })}
+                  emptyMessage="Nincsenek szállást igénylő vendégek"
+                  selectedIds={selectedIds}
+                  onSelectionChange={setSelectedIds}
+                />
+              </>
+            )}
           </>
+        )}
+
+        {/* ── KANBAN TAB ── */}
+        {activeTab === 'kanban' && (
+          <>
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-autumn-800">RSVP tábla</h2>
+              <p className="text-sm text-stone-500 mt-0.5">Húzd át a vendégeket az oszlopok között a visszajelzés módosításához</p>
+            </div>
+            {guests.length === 0 ? (
+              <p className="text-stone-400 text-sm text-center py-12">Még nincsenek vendégek</p>
+            ) : (
+              <KanbanView
+                guests={guests}
+                onUpdateRsvp={handleUpdateRsvp}
+                onEditGuest={(g) => setEditContext({ guest: g, source: 'teljes' })}
+              />
+            )}
+          </>
+        )}
+
+        {/* ── SEATING TAB ── */}
+        {activeTab === 'ultetesi' && (
+          <>
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-autumn-800">Ültetési rend</h2>
+              <p className="text-sm text-stone-500 mt-0.5">Húzd az asztalokat a kívánt helyre · kattints egy vendégen az asztalhoz rendeléshez</p>
+            </div>
+            <SeatingView
+              guests={guests}
+              onUpdateGuest={handleUpdateSeating}
+            />
+          </>
+        )}
+
+        {/* ── DASHBOARD TAB ── */}
+        {activeTab === 'osszesito' && (
+          <DashboardView
+            guests={guests}
+            szallasGuests={szallasGuests}
+            capacities={capacities}
+            rooms={rooms}
+          />
         )}
       </main>
 
+      {/* ── Modals & overlays ── */}
       <EditModal
         guest={editContext?.guest ?? null}
         source={editContext?.source ?? 'teljes'}
         onSave={handleSave}
         onClose={() => setEditContext(null)}
       />
+
+      {showPrint && (
+        <PrintView
+          szallasGuests={szallasGuests}
+          capacities={capacities}
+          rooms={rooms}
+          onClose={() => setShowPrint(false)}
+        />
+      )}
+
+      <ActivityLog open={showLog} onClose={() => setShowLog(false)} />
+
+      {showBatchBar && (
+        <BatchActionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+          onApplyRsvp={handleBatchRsvp}
+          onApplyGroup={handleBatchGroup}
+        />
+      )}
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

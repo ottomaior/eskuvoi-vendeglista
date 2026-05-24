@@ -25,7 +25,7 @@ const NORMALIZED_HEADER_MAP: Record<string, keyof Omit<Guest, 'id'>> =
 
 function mapRows(rows: Record<string, unknown>[]): Guest[] {
   return rows.map((row) => {
-    const guest: Partial<Guest> = { id: uuidv4() };
+    const guest: Partial<Guest> = { id: uuidv4(), csoportNev: '' };
     for (const [rawHeader, value] of Object.entries(row)) {
       const fieldKey = NORMALIZED_HEADER_MAP[normalizeHeader(rawHeader)];
       if (fieldKey) {

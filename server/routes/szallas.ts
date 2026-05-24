@@ -21,6 +21,7 @@ function guestToColumns(g: Record<string, string>) {
     etkezesi_korlatozas: g.etkezesiKorlatozas ?? '',
     ultetesi_rend: g.ultetesiRend ?? '',
     megjegyzes: g.megjegyzes ?? '',
+    csoport_nev: g.csoportNev ?? '',
   };
 }
 
@@ -46,11 +47,11 @@ router.post('/', async (req, res) => {
       await client.query(
         `INSERT INTO guests (id, source, letszam, vendeg_neve, meghivo_elkuldve, visszajelzes,
           telefonszam, erkezes_datuma, tavozas_datuma, szallas_typusa, szallas_neve,
-          szobaszam, etkezes, etkezesi_korlatozas, ultetesi_rend, megjegyzes)
-         VALUES ($1,'szallas',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          szobaszam, etkezes, etkezesi_korlatozas, ultetesi_rend, megjegyzes, csoport_nev)
+         VALUES ($1,'szallas',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [c.id, c.letszam, c.vendeg_neve, c.meghivo_elkuldve, c.visszajelzes,
          c.telefonszam, c.erkezes_datuma, c.tavozas_datuma, c.szallas_typusa, c.szallas_neve,
-         c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes]
+         c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes, c.csoport_nev]
       );
     }
     await client.query('COMMIT');
@@ -71,11 +72,11 @@ router.post('/new', async (req, res) => {
   await pool.query(
     `INSERT INTO guests (id, source, letszam, vendeg_neve, meghivo_elkuldve, visszajelzes,
       telefonszam, erkezes_datuma, tavozas_datuma, szallas_typusa, szallas_neve,
-      szobaszam, etkezes, etkezesi_korlatozas, ultetesi_rend, megjegyzes)
-     VALUES ($1,'szallas',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      szobaszam, etkezes, etkezesi_korlatozas, ultetesi_rend, megjegyzes, csoport_nev)
+     VALUES ($1,'szallas',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [c.id, c.letszam, c.vendeg_neve, c.meghivo_elkuldve, c.visszajelzes,
      c.telefonszam, c.erkezes_datuma, c.tavozas_datuma, c.szallas_typusa, c.szallas_neve,
-     c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes]
+     c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes, c.csoport_nev]
   );
   await broadcast();
   res.json({ ok: true });
@@ -88,11 +89,12 @@ router.put('/:id', async (req, res) => {
   await pool.query(
     `UPDATE guests SET letszam=$1, vendeg_neve=$2, meghivo_elkuldve=$3, visszajelzes=$4,
       telefonszam=$5, erkezes_datuma=$6, tavozas_datuma=$7, szallas_typusa=$8, szallas_neve=$9,
-      szobaszam=$10, etkezes=$11, etkezesi_korlatozas=$12, ultetesi_rend=$13, megjegyzes=$14
-     WHERE id=$15 AND source='szallas'`,
+      szobaszam=$10, etkezes=$11, etkezesi_korlatozas=$12, ultetesi_rend=$13, megjegyzes=$14,
+      csoport_nev=$15
+     WHERE id=$16 AND source='szallas'`,
     [c.letszam, c.vendeg_neve, c.meghivo_elkuldve, c.visszajelzes,
      c.telefonszam, c.erkezes_datuma, c.tavozas_datuma, c.szallas_typusa, c.szallas_neve,
-     c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes, c.id]
+     c.szobaszam, c.etkezes, c.etkezesi_korlatozas, c.ultetesi_rend, c.megjegyzes, c.csoport_nev, c.id]
   );
   await broadcast();
   res.json({ ok: true });

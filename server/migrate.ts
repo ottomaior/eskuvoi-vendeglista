@@ -33,6 +33,18 @@ export async function migrate(): Promise<void> {
       name TEXT NOT NULL,
       capacity INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      action TEXT NOT NULL,
+      guest_name TEXT NOT NULL DEFAULT '',
+      field TEXT NOT NULL DEFAULT '',
+      old_value TEXT NOT NULL DEFAULT '',
+      new_value TEXT NOT NULL DEFAULT ''
+    );
+
+    ALTER TABLE guests ADD COLUMN IF NOT EXISTS csoport_nev TEXT NOT NULL DEFAULT '';
   `);
 
   console.log('Database migration complete');

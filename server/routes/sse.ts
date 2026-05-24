@@ -89,6 +89,7 @@ export async function loadFullState() {
     etkezesiKorlatozas: row.etkezesi_korlatozas,
     ultetesiRend: row.ultetesi_rend,
     megjegyzes: row.megjegyzes,
+    csoportNev: row.csoport_nev ?? '',
   });
 
   const capacities: Record<string, number> = {};

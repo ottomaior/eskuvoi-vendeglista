@@ -10,6 +10,7 @@ import szallasRouter from './routes/szallas.js';
 import capacitiesRouter from './routes/capacities.js';
 import roomsRouter from './routes/rooms.js';
 import { sseHandler } from './routes/sse.js';
+import { logsRouter } from './routes/logs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/guests', requireAuth, guestsRouter);
 app.use('/api/szallas', requireAuth, szallasRouter);
 app.use('/api/capacities', requireAuth, capacitiesRouter);
 app.use('/api/rooms', requireAuth, roomsRouter);
+app.use('/api/logs', requireAuth, logsRouter);
 
 // ── Serve Vite build in production ────────────────────────────────────────────
 const distDir = path.join(__dirname, '..', 'dist');

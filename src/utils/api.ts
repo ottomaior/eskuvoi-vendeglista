@@ -112,3 +112,37 @@ export async function saveRoomsForAcc(accName: string, rooms: RoomDef[]): Promis
     body: JSON.stringify(rooms),
   });
 }
+
+// ── Activity log ──────────────────────────────────────────────────────────────
+
+export interface AuditEntry {
+  id: number;
+  created_at: string;
+  action: string;
+  guest_name: string;
+  field: string;
+  old_value: string;
+  new_value: string;
+}
+
+export async function fetchLogs(): Promise<AuditEntry[]> {
+  const res = await apiFetch('/api/logs');
+  return res.json() as Promise<AuditEntry[]>;
+}
+
+export async function postLog(
+  action: string,
+  guestName: string,
+  field?: string,
+  oldValue?: string,
+  newValue?: string
+): Promise<void> {
+  await apiFetch('/api/logs', {
+    method: 'POST',
+    body: JSON.stringify({ action, guestName, field, oldValue, newValue }),
+  });
+}
+
+export async function clearLogs(): Promise<void> {
+  await apiFetch('/api/logs', { method: 'DELETE' });
+}

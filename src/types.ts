@@ -14,6 +14,7 @@ export interface Guest {
   etkezesiKorlatozas: string;
   ultetesiRend: string;
   megjegyzes: string;
+  csoportNev: string;
 }
 
 export interface ColumnDef {
@@ -64,6 +65,8 @@ export const CSV_HEADER_MAP: Record<string, keyof Omit<Guest, 'id'>> = {
   'Étkezési korlátozás': 'etkezesiKorlatozas',
   'Ültetési rend': 'ultetesiRend',
   'Megjegyzés': 'megjegyzes',
+  // New fields
+  'Csoport': 'csoportNev',
   // Legacy column names (backward compat with old CSV files)
   'Létszám': 'letszam',
   'Érkezés dátuma': 'erkezesDatuma',
@@ -88,6 +91,7 @@ export const CSV_REVERSE_MAP: Record<keyof Omit<Guest, 'id'>, string> = {
   etkezesiKorlatozas: 'Étkezési korlátozás',
   ultetesiRend: 'Ültetési rend',
   megjegyzes: 'Megjegyzés',
+  csoportNev: 'Csoport',
 };
 
 /**
@@ -97,5 +101,5 @@ export const CSV_REVERSE_MAP: Record<keyof Omit<Guest, 'id'>, string> = {
 export const SHARED_FIELD_KEYS: (keyof Omit<Guest, 'id'>)[] = [
   'letszam', 'vendegNeve', 'telefonszam',
   'erkezesDatuma', 'tavozasDatuma', 'szallasTypusa', 'szallasNeve',
-  'szobaszam', 'etkezes', 'etkezesiKorlatozas', 'megjegyzes',
+  'szobaszam', 'etkezes', 'etkezesiKorlatozas', 'megjegyzes', 'csoportNev',
 ];

@@ -6,6 +6,8 @@ interface GuestTableProps {
   columns: ColumnDef[];
   onEditGuest: (guest: Guest) => void;
   emptyMessage?: string;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 type SortDir = 'asc' | 'desc' | null;
@@ -107,9 +109,12 @@ function SortIcon({ dir }: { dir: SortDir }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function GuestTable({ guests, columns, onEditGuest, emptyMessage }: GuestTableProps) {
+export default function GuestTable({ guests, columns, onEditGuest, emptyMessage, selectedIds, onSelectionChange }: GuestTableProps) {
   const [sortKey, setSortKey] = useState<keyof Guest | null>('letszam');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const selectable = !!onSelectionChange;
+  const selected = selectedIds ?? new Set<string>();
 
   function handleSort(key: keyof Guest) {
     if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
@@ -117,11 +122,26 @@ export default function GuestTable({ guests, columns, onEditGuest, emptyMessage 
     setSortKey(null); setSortDir(null);
   }
 
+  function toggleSelect(id: string) {
+    if (!onSelectionChange) return;
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    onSelectionChange(next);
+  }
+
+  function toggleAll() {
+    if (!onSelectionChange) return;
+    if (selected.size === sorted.length) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(sorted.map((g) => g.id)));
+    }
+  }
+
   const sorted = [...guests].sort((a, b) => {
     if (!sortKey || !sortDir) return 0;
     const av = a[sortKey] ?? '';
     const bv = b[sortKey] ?? '';
-    // Numeric sort for letszam so 1 < 2 < 10 (not lexicographic)
     if (sortKey === 'letszam') {
       const an = parseInt(av, 10);
       const bn = parseInt(bv, 10);
@@ -145,12 +165,26 @@ export default function GuestTable({ guests, columns, onEditGuest, emptyMessage 
     );
   }
 
+  const allSelected = sorted.length > 0 && selected.size === sorted.length;
+  const someSelected = selected.size > 0 && !allSelected;
+
   return (
     <div className="rounded-xl border border-autumn-200 shadow-sm shadow-autumn-200/25 bg-[#FFFCF8] overflow-hidden">
       <div className="overflow-x-auto max-h-[68vh] overflow-y-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="bg-autumn-50 border-b border-autumn-100">
+              {selectable && (
+                <th className="px-3 py-3 sticky left-0 bg-autumn-50 z-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded accent-autumn-600 cursor-pointer"
+                  />
+                </th>
+              )}
               {columns.map((col) => {
                 const active = sortKey === col.key;
                 return (
@@ -166,38 +200,49 @@ export default function GuestTable({ guests, columns, onEditGuest, emptyMessage 
                   </th>
                 );
               })}
-              {/* Always-visible edit column header */}
               <th className="px-3 py-3 text-right text-xs font-semibold text-autumn-700 uppercase tracking-wide sticky right-0 bg-autumn-50">
                 &nbsp;
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-autumn-50">
-            {sorted.map((guest) => (
-              <tr
-                key={guest.id}
-                className={`hover:bg-autumn-50/60 active:bg-autumn-100/60 transition-colors cursor-pointer group ${rowStripeClass(guest.visszajelzes ?? '')}`}
-                onClick={() => onEditGuest(guest)}
-              >
-                {columns.map((col) => (
-                  <td key={col.key} className="px-3 py-3 whitespace-nowrap">
-                    <CellValue colKey={col.key} value={guest[col.key] ?? ''} />
+            {sorted.map((guest) => {
+              const isSelected = selected.has(guest.id);
+              return (
+                <tr
+                  key={guest.id}
+                  className={`hover:bg-autumn-50/60 active:bg-autumn-100/60 transition-colors cursor-pointer group ${rowStripeClass(guest.visszajelzes ?? '')} ${isSelected ? 'bg-autumn-50' : ''}`}
+                  onClick={() => selectable ? toggleSelect(guest.id) : onEditGuest(guest)}
+                >
+                  {selectable && (
+                    <td className="px-3 py-3 sticky left-0 bg-[#FFFCF8] group-hover:bg-autumn-50/60 transition-colors" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(guest.id)}
+                        className="w-4 h-4 rounded accent-autumn-600 cursor-pointer"
+                      />
+                    </td>
+                  )}
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-3 py-3 whitespace-nowrap">
+                      <CellValue colKey={col.key} value={guest[col.key] ?? ''} />
+                    </td>
+                  ))}
+                  <td className="px-2 py-3 text-right sticky right-0 bg-[#FFFCF8] group-hover:bg-autumn-50/60 transition-colors">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEditGuest(guest); }}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-md text-autumn-600 hover:bg-autumn-100 active:bg-autumn-200 transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                      title="Szerkesztés"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   </td>
-                ))}
-                {/* Edit button — always visible on mobile, hover-reveal on desktop */}
-                <td className="px-2 py-3 text-right sticky right-0 bg-[#FFFCF8] group-hover:bg-autumn-50/60 transition-colors">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEditGuest(guest); }}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-md text-autumn-600 hover:bg-autumn-100 active:bg-autumn-200 transition-all sm:opacity-0 sm:group-hover:opacity-100"
-                    title="Szerkesztés"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
