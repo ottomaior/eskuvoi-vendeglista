@@ -470,6 +470,7 @@ export default function App() {
                 onEditGuest={(g) => setEditContext({ guest: g, source: 'teljes' })}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
+                storageKey="teljes"
               />
             </>
           )
@@ -548,6 +549,7 @@ export default function App() {
                   emptyMessage="Nincsenek szállást igénylő vendégek"
                   selectedIds={selectedIds}
                   onSelectionChange={setSelectedIds}
+                  storageKey="szallas"
                 />
               </>
             )}
