@@ -15,8 +15,11 @@ interface Table {
 }
 
 const TABLE_R = 52;
-const CANVAS_W = 900;
-const CANVAS_H = 600;
+const CANVAS_W = 1240;
+const CANVAS_H = 920;
+const DEFAULT_SEATS = 12;
+const DEFAULT_TABLE_COUNT = 20;
+const COLS = 5;
 
 const RSVP_COLOR: Record<string, string> = {
   igen: '#34d399',
@@ -33,14 +36,16 @@ function guestColor(g: Guest) {
 }
 
 function makeDefaultTables(): Table[] {
-  const labels = ['1. asztal', '2. asztal', '3. asztal', '4. asztal', '5. asztal', '6. asztal'];
-  return labels.map((label, i) => ({
-    id: label,
-    label,
-    x: 140 + (i % 3) * 240,
-    y: 120 + Math.floor(i / 3) * 220,
-    seats: 8,
-  }));
+  return Array.from({ length: DEFAULT_TABLE_COUNT }, (_, i) => {
+    const label = `${i + 1}. asztal`;
+    return {
+      id: label,
+      label,
+      x: 140 + (i % COLS) * 220,
+      y: 130 + Math.floor(i / COLS) * 210,
+      seats: DEFAULT_SEATS,
+    };
+  });
 }
 
 export default function SeatingView({ guests, onUpdateGuest }: SeatingViewProps) {
@@ -112,9 +117,9 @@ export default function SeatingView({ guests, onUpdateGuest }: SeatingViewProps)
     if (tables.find((t) => t.id === label)) return;
     setTables((prev) => [...prev, {
       id: label, label,
-      x: 140 + ((tables.length % 3) * 240),
-      y: 120 + (Math.floor(tables.length / 3) * 220),
-      seats: 8,
+      x: 140 + ((tables.length % COLS) * 220),
+      y: 130 + (Math.floor(tables.length / COLS) * 210),
+      seats: DEFAULT_SEATS,
     }]);
     setNewLabel('');
     setAddingTable(false);
