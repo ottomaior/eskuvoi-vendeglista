@@ -224,14 +224,31 @@ function RoomSelector({
   allGuests: Guest[];
   onAssign: (guestId: string, roomName: string) => void;
 }) {
-  if (accRooms.length === 0) {
+  const thisGuest = allGuests.find((g) => g.id === guestId);
+  const thisCount = thisGuest ? guestHeadcount(thisGuest) : 1;
+
+  // Rooms that guests already have assigned but are not in the formal room definitions
+  // (e.g. came from a CSV import). Sort them numerically when possible.
+  const definedNames = new Set(accRooms.map((r) => r.name.trim()));
+  const virtualRoomNames = [
+    ...new Set(
+      allGuests
+        .map((g) => (g.szobaszam ?? '').trim())
+        .filter((name) => name && !definedNames.has(name))
+    ),
+  ].sort((a, b) => {
+    const na = parseInt(a, 10);
+    const nb = parseInt(b, 10);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b, 'hu');
+  });
+
+  // If there are no formal rooms AND no virtual rooms, just show the current value as a badge
+  if (accRooms.length === 0 && virtualRoomNames.length === 0) {
     return currentRoom
       ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono">{currentRoom}</span>
       : null;
   }
-
-  const thisGuest = allGuests.find((g) => g.id === guestId);
-  const thisCount = thisGuest ? guestHeadcount(thisGuest) : 1;
 
   return (
     <select
@@ -241,15 +258,31 @@ function RoomSelector({
       className="text-xs rounded-lg border border-stone-200 bg-[#FFFCF8] text-stone-700 px-2 py-2 focus:outline-none focus:ring-2 focus:ring-autumn-300 focus:border-autumn-400 min-h-[36px] min-w-[80px] max-w-[140px]"
     >
       <option value="">— szoba</option>
+
+      {/* Formally defined rooms (with capacity tracking) */}
       {accRooms.map((room) => {
         const occ = roomOccupied(room, allGuests);
         const isCurrentRoom = currentRoom === room.name;
-        const freeAfterRemovingSelf = isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ;
-        const wouldFit = freeAfterRemovingSelf >= thisCount;
         const free = isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ;
+        const wouldFit = (isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ) >= thisCount;
         return (
           <option key={room.id} value={room.name} disabled={!wouldFit && !isCurrentRoom}>
             {room.name} ({free > 0 ? `${free} szabad` : 'tele'})
+          </option>
+        );
+      })}
+
+      {/* Virtual rooms from CSV import (no capacity definition) */}
+      {virtualRoomNames.length > 0 && accRooms.length > 0 && (
+        <option disabled>──────────</option>
+      )}
+      {virtualRoomNames.map((name) => {
+        const occ = allGuests
+          .filter((g) => (g.szobaszam ?? '').trim() === name)
+          .reduce((s, g) => s + guestHeadcount(g), 0);
+        return (
+          <option key={name} value={name}>
+            {name} ({occ} fő)
           </option>
         );
       })}
