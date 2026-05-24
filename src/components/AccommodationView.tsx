@@ -117,7 +117,7 @@ function RoomChip({
           <span className="font-medium text-gray-800 truncate">{room.name}</span>
         </div>
         <div className="text-gray-500 tabular-nums pl-3.5">
-          {occ} / {room.capacity} fő{full ? ' · teli' : free === room.capacity ? ' · szabad' : ''}
+          {occ} / {room.capacity} fő{full ? ' · tele' : free === room.capacity ? ' · szabad' : ''}
         </div>
       </div>
       {/* Actions always visible on mobile, hover on desktop */}
@@ -249,7 +249,7 @@ function RoomSelector({
         const free = isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ;
         return (
           <option key={room.id} value={room.name} disabled={!wouldFit && !isCurrentRoom}>
-            {room.name} ({free > 0 ? `${free} szabad` : 'teli'})
+            {room.name} ({free > 0 ? `${free} szabad` : 'tele'})
           </option>
         );
       })}
