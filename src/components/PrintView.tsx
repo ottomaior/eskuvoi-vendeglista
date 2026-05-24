@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Guest } from '../types';
 import type { RoomDef } from '../utils/rooms';
 
@@ -191,7 +192,18 @@ function CateringSummary({ guests }: { guests: Guest[] }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PrintView({ szallasGuests, capacities, rooms, onClose }: PrintViewProps) {
-  const printRef = useRef<HTMLDivElement>(null);
+  // Stable portal element — created once, mounted/unmounted with the component
+  const portalEl = useRef<HTMLDivElement | null>(null);
+  if (!portalEl.current) {
+    portalEl.current = document.createElement('div');
+    portalEl.current.className = 'print-portal';
+  }
+
+  useEffect(() => {
+    const el = portalEl.current!;
+    document.body.appendChild(el);
+    return () => { document.body.removeChild(el); };
+  }, []);
 
   function handlePrint() {
     window.print();
@@ -207,13 +219,42 @@ export default function PrintView({ szallasGuests, capacities, rooms, onClose }:
 
   const today = new Intl.DateTimeFormat('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
 
+  const printContent = (
+    <div className="print-content px-8 py-6">
+      {/* Print header */}
+      <div className="print-header">
+        <h1 className="print-title">Esküvői szállás összesítő</h1>
+        <p className="print-date">Nyomtatva: {today}</p>
+        <p className="print-summary">
+          {szallasGuests.length} szállást igénylő vendég · {Object.keys(byAcc).length} szállás
+        </p>
+      </div>
+
+      {/* Accommodation sections */}
+      {Object.entries(byAcc)
+        .sort(([a], [b]) => a.localeCompare(b, 'hu'))
+        .map(([accName, accGuests]) => (
+          <AccSection
+            key={accName}
+            accName={accName}
+            guests={accGuests}
+            rooms={rooms[accName] ?? []}
+            capacity={capacities[accName] ?? 0}
+          />
+        ))}
+
+      {/* Catering summary */}
+      <CateringSummary guests={szallasGuests} />
+    </div>
+  );
+
   return (
     <>
-      {/* ── Screen overlay ── */}
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-auto p-4">
+      {/* ── Screen overlay (toolbar only — hidden during print) ── */}
+      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-auto p-4 print:hidden">
         <div className="bg-[#FFFCF8] rounded-2xl shadow-2xl w-full max-w-5xl my-6">
           {/* Toolbar */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-autumn-200 print:hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-autumn-200">
             <div>
               <h2 className="text-lg font-semibold text-autumn-800">Szállás összesítő nyomtatása</h2>
               <p className="text-sm text-stone-500 mt-0.5">Ellenőrizd, majd kattints a Nyomtatás gombra</p>
@@ -237,35 +278,15 @@ export default function PrintView({ szallasGuests, capacities, rooms, onClose }:
             </div>
           </div>
 
-          {/* Printable content */}
-          <div ref={printRef} className="print-content px-8 py-6 overflow-auto max-h-[75vh]">
-            {/* Print header */}
-            <div className="print-header">
-              <h1 className="print-title">Esküvői szállás összesítő</h1>
-              <p className="print-date">Nyomtatva: {today}</p>
-              <p className="print-summary">
-                {szallasGuests.length} szállást igénylő vendég · {Object.keys(byAcc).length} szállás
-              </p>
-            </div>
-
-            {/* Accommodation sections */}
-            {Object.entries(byAcc)
-              .sort(([a], [b]) => a.localeCompare(b, 'hu'))
-              .map(([accName, accGuests]) => (
-                <AccSection
-                  key={accName}
-                  accName={accName}
-                  guests={accGuests}
-                  rooms={rooms[accName] ?? []}
-                  capacity={capacities[accName] ?? 0}
-                />
-              ))}
-
-            {/* Catering summary */}
-            <CateringSummary guests={szallasGuests} />
+          {/* Preview of the printable content (screen only) */}
+          <div className="px-8 py-6 overflow-auto max-h-[75vh]">
+            {printContent}
           </div>
         </div>
       </div>
+
+      {/* ── Print content rendered via portal as a direct child of <body> ── */}
+      {createPortal(printContent, portalEl.current!)}
     </>
   );
 }

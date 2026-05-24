@@ -63,22 +63,18 @@
 /* ── Print styles ────────────────────────────────────────────────────────────── */
 
 @media print {
-  /* visibility: hidden can be overridden by children (unlike display: none) */
-  body * {
-    visibility: hidden;
+  /* Hide the entire app; the portal (.print-portal) is a direct child of body */
+  body > * {
+    display: none !important;
   }
 
-  .print-content,
-  .print-content * {
-    visibility: visible;
+  /* Show only the portal container and its print content */
+  body > .print-portal {
+    display: block !important;
   }
 
-  /* Pull print content out of the modal overlay and fill the page */
   .print-content {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
+    display: block !important;
     max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
