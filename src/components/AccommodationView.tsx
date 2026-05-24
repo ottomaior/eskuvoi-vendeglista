@@ -424,9 +424,14 @@ function AccommodationCard({
   }
 
   const hasRooms = accRooms.length > 0;
-  const roomsTotal = hasRooms ? accRooms.reduce((s, r) => s + r.capacity, 0) : (maxSlots ?? 0);
+  const roomsTotal = hasRooms ? accRooms.reduce((s, r) => s + r.capacity, 0) : 0;
   const occupied = guests.reduce((sum, g) => sum + guestHeadcount(g), 0);
-  const effectiveMax = roomsTotal > 0 ? roomsTotal : maxSlots;
+  // Use the larger of: sum of defined rooms OR the overall capacity (e.g. from CSV import).
+  // This prevents a single partial room definition from overriding the full accommodation capacity.
+  const effectiveMax: number | undefined =
+    roomsTotal > 0 || (maxSlots ?? 0) > 0
+      ? Math.max(roomsTotal, maxSlots ?? 0)
+      : undefined;
   const hasMax = typeof effectiveMax === 'number' && effectiveMax > 0;
   const pct = hasMax ? Math.min(Math.round((occupied / effectiveMax!) * 100), 100) : null;
   const barColor = pct === null ? 'bg-gray-300' : pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400';
@@ -645,11 +650,11 @@ export default function AccommodationView({
 
   const sortedGroups = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, 'hu'));
 
-  // Total capacity: prefer sum of rooms, else manual capacities
+  // Total capacity: whichever is larger — room total or overall capacity (e.g. from CSV import)
   const totalMax = [...groups.keys()].reduce((sum, name) => {
     const accRooms = rooms[name] ?? [];
     const roomTotal = accRooms.reduce((s, r) => s + r.capacity, 0);
-    return sum + (roomTotal > 0 ? roomTotal : (capacities[name] ?? 0));
+    return sum + Math.max(roomTotal, capacities[name] ?? 0);
   }, 0);
   const totalOccupied = guests.reduce((s, g) => s + guestHeadcount(g), 0);
 
