@@ -263,11 +263,13 @@ function RoomSelector({
       {accRooms.map((room) => {
         const occ = roomOccupied(room, allGuests);
         const isCurrentRoom = currentRoom === room.name;
-        const free = isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ;
+        // wouldFit: add back thisCount for the current room so the guest can "remain" there
         const wouldFit = (isCurrentRoom ? room.capacity - occ + thisCount : room.capacity - occ) >= thisCount;
+        // displayFree: actual free slots (no self-removal trick — just show reality)
+        const displayFree = room.capacity - occ;
         return (
           <option key={room.id} value={room.name} disabled={!wouldFit && !isCurrentRoom}>
-            {room.name} ({free > 0 ? `${free} szabad` : 'tele'})
+            {room.name} ({displayFree > 0 ? `${displayFree} szabad` : 'tele'})
           </option>
         );
       })}
