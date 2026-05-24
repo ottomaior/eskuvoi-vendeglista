@@ -238,7 +238,7 @@ export default function PrintView({ szallasGuests, capacities, rooms, onClose }:
           </div>
 
           {/* Printable content */}
-          <div ref={printRef} className="print-content px-8 py-6 overflow-auto max-h-[75vh] print:max-h-none print:overflow-visible">
+          <div ref={printRef} className="print-content px-8 py-6 overflow-auto max-h-[75vh]">
             {/* Print header */}
             <div className="print-header">
               <h1 className="print-title">Esküvői szállás összesítő</h1>

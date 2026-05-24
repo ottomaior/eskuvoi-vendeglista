@@ -63,9 +63,27 @@
 /* ── Print styles ────────────────────────────────────────────────────────────── */
 
 @media print {
-  /* Hide everything outside the printable content */
-  body > * { display: none !important; }
-  .print-content { display: block !important; }
+  /* visibility: hidden can be overridden by children (unlike display: none) */
+  body * {
+    visibility: hidden;
+  }
+
+  .print-content,
+  .print-content * {
+    visibility: visible;
+  }
+
+  /* Pull print content out of the modal overlay and fill the page */
+  .print-content {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+  }
 
   * {
     -webkit-print-color-adjust: exact;
