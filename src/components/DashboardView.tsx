@@ -17,16 +17,14 @@ interface DashboardViewProps {
 const RSVP_COLORS: Record<string, string> = {
   'Igen':         '#34d399',
   'Nem':          '#f87171',
-  'Talán':        '#fbbf24',
   'Várakozás':    '#fb923c',
-  'Folyamatban':  '#60a5fa',
   'Nincs adat':   '#d1d5db',
 };
 
 function rsvpLabel(v: string): string {
   const map: Record<string, string> = {
-    igen: 'Igen', nem: 'Nem', talán: 'Talán', talan: 'Talán',
-    várakozás: 'Várakozás', varakozas: 'Várakozás', folyamatban: 'Folyamatban',
+    igen: 'Igen', nem: 'Nem',
+    várakozás: 'Várakozás', varakozas: 'Várakozás',
   };
   return map[v.toLowerCase().trim()] ?? 'Nincs adat';
 }
@@ -39,7 +37,7 @@ function buildRsvpData(guests: Guest[]) {
   }
   return Object.entries(counts)
     .sort(([a], [b]) => {
-      const order = ['Igen', 'Nem', 'Talán', 'Várakozás', 'Folyamatban', 'Nincs adat'];
+      const order = ['Igen', 'Nem', 'Várakozás', 'Nincs adat'];
       return order.indexOf(a) - order.indexOf(b);
     })
     .map(([name, value]) => ({ name, value }));

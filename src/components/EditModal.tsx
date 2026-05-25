@@ -39,7 +39,7 @@ function saveCustomSzallasOptions(opts: string[]): void {
 // ── Simple select options for other fields ────────────────────────────────────
 
 const SIMPLE_SELECT: Partial<Record<keyof Guest, string[]>> = {
-  visszajelzes: ['', 'Igen', 'Nem', 'Talán', 'Várakozás', 'Folyamatban'],
+  visszajelzes: ['', 'Igen', 'Nem', 'Várakozás'],
   meghivoElkuldve: ['', 'Igen', 'Nem'],
   etkezes: ['', 'Igen', 'Nem', 'Vegetáriánus', 'Vegán', 'Egyéb'],
 };

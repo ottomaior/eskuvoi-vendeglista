@@ -10,9 +10,7 @@ const RSVP_OPTIONS = [
   { value: '', label: 'Összes' },
   { value: 'igen', label: 'Igen' },
   { value: 'nem', label: 'Nem' },
-  { value: 'talán', label: 'Talán' },
   { value: 'várakozás', label: 'Várakozás' },
-  { value: 'folyamatban', label: 'Folyamatban' },
   { value: '__empty__', label: 'Nincs visszajelzés' },
 ];
 

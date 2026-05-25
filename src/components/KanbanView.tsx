@@ -10,18 +10,14 @@ interface KanbanViewProps {
 const COLUMNS = [
   { id: 'Igen',        label: 'Igen',          color: 'border-t-emerald-400', badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-400' },
   { id: 'Nem',         label: 'Nem',           color: 'border-t-red-400',     badge: 'bg-red-100 text-red-700',         dot: 'bg-red-400' },
-  { id: 'Talán',       label: 'Talán',         color: 'border-t-yellow-400',  badge: 'bg-yellow-100 text-yellow-800',   dot: 'bg-yellow-400' },
   { id: 'Várakozás',   label: 'Várakozás',     color: 'border-t-amber-400',   badge: 'bg-amber-100 text-amber-800',     dot: 'bg-amber-400' },
-  { id: 'Folyamatban', label: 'Folyamatban',   color: 'border-t-blue-400',    badge: 'bg-blue-100 text-blue-800',       dot: 'bg-blue-400' },
   { id: '__empty__',   label: 'Nincs adat',    color: 'border-t-gray-300',    badge: 'bg-gray-100 text-gray-600',       dot: 'bg-gray-300' },
 ];
 
 function normalizeRsvp(v: string): string {
   const map: Record<string, string> = {
     'igen': 'Igen', 'nem': 'Nem',
-    'talán': 'Talán', 'talan': 'Talán',
     'várakozás': 'Várakozás', 'varakozas': 'Várakozás',
-    'folyamatban': 'Folyamatban',
   };
   return map[v?.toLowerCase().trim() ?? ''] ?? '__empty__';
 }

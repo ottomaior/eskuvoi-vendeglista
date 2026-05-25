@@ -7,7 +7,7 @@ interface BatchActionBarProps {
   onApplyGroup: (value: string) => Promise<void>;
 }
 
-const RSVP_OPTIONS = ['Igen', 'Nem', 'Talán', 'Várakozás', 'Folyamatban'];
+const RSVP_OPTIONS = ['Igen', 'Nem', 'Várakozás'];
 
 export default function BatchActionBar({ count, onClear, onApplyRsvp, onApplyGroup }: BatchActionBarProps) {
   const [mode, setMode] = useState<'rsvp' | 'group' | null>(null);
