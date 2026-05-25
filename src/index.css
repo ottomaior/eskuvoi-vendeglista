@@ -60,6 +60,11 @@
   animation: tab-slide-in 0.18s ease-out both;
 }
 
+/* Mobile fixed bottom nav — reserve space for home indicator */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ── Print styles ────────────────────────────────────────────────────────────── */
 
 @media print {

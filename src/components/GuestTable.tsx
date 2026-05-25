@@ -374,7 +374,10 @@ export default function GuestTable({
         </button>
 
         {/* Table scroll container */}
-        <div ref={scrollRef} className="overflow-x-auto max-h-[68vh] overflow-y-auto scroll-smooth">
+        <div
+          ref={scrollRef}
+          className="overflow-x-auto max-h-[68vh] overflow-y-auto scroll-smooth max-sm:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+        >
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-autumn-50 border-b border-autumn-100">

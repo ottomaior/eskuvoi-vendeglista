@@ -91,7 +91,7 @@ export default function KanbanView({ guests, onUpdateRsvp, onEditGuest }: Kanban
   }
 
   return (
-    <div className="overflow-x-auto pb-4">
+    <div className="overflow-x-auto pb-4 max-sm:pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
       <div className="flex gap-3 min-w-max">
         {COLUMNS.map((col) => {
           const colGuests = grouped[col.id] ?? [];

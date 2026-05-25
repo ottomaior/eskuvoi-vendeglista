@@ -85,9 +85,6 @@ export default function TabBar({ activeTab, onChange, guestCount, szallasCount }
           })}
         </div>
       </nav>
-
-      {/* Spacer so content isn't hidden behind mobile nav */}
-      <div className="sm:hidden h-14" aria-hidden />
     </>
   );
 }

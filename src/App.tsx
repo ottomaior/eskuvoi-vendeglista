@@ -422,7 +422,7 @@ export default function App() {
         szallasCount={szallasGuests.length}
       />
 
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-6 animate-tab-in">
+      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-6 max-sm:pb-[calc(5rem+env(safe-area-inset-bottom,0px))] animate-tab-in">
         {importError && (
           <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
             <svg className="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
