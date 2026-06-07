@@ -15,9 +15,13 @@ const dateFormatter = new Intl.DateTimeFormat('hu-HU', {
 });
 
 function fmt(d: string) {
-  if (!d) return '—';
+  if (!d?.trim()) return '';
   const dt = new Date(d);
   return isNaN(dt.getTime()) ? d : dateFormatter.format(dt);
+}
+
+function printField(value: string | undefined): string {
+  return value?.trim() ?? '';
 }
 
 // ── Accommodation summary section ─────────────────────────────────────────────
@@ -86,12 +90,12 @@ function AccSection({
               <tbody>
                 {roomGuests.map((g) => (
                   <tr key={g.id}>
-                    <td className="font-medium">{g.vendegNeve || '—'}</td>
+                    <td className="font-medium">{printField(g.vendegNeve)}</td>
                     <td>{fmt(g.erkezesDatuma)}</td>
                     <td>{fmt(g.tavozasDatuma)}</td>
-                    <td>{g.etkezes || '—'}</td>
-                    <td>{g.etkezesiKorlatozas || '—'}</td>
-                    <td>{g.megjegyzes || '—'}</td>
+                    <td>{printField(g.etkezes)}</td>
+                    <td>{printField(g.etkezesiKorlatozas)}</td>
+                    <td>{printField(g.megjegyzes)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -120,12 +124,12 @@ function AccSection({
             <tbody>
               {unassigned.map((g) => (
                 <tr key={g.id}>
-                  <td className="font-medium">{g.vendegNeve || '—'}</td>
+                  <td className="font-medium">{printField(g.vendegNeve)}</td>
                   <td>{fmt(g.erkezesDatuma)}</td>
                   <td>{fmt(g.tavozasDatuma)}</td>
-                  <td>{g.etkezes || '—'}</td>
-                  <td>{g.etkezesiKorlatozas || '—'}</td>
-                  <td>{g.megjegyzes || '—'}</td>
+                  <td>{printField(g.etkezes)}</td>
+                  <td>{printField(g.etkezesiKorlatozas)}</td>
+                  <td>{printField(g.megjegyzes)}</td>
                 </tr>
               ))}
             </tbody>
@@ -174,7 +178,7 @@ function CateringSummary({ guests }: { guests: Guest[] }) {
                   ? Object.entries(data.restrictions)
                       .map(([r, n]) => `${r} (${n} fő)`)
                       .join(', ')
-                  : '—'}
+                  : ''}
               </td>
             </tr>
           ))}
