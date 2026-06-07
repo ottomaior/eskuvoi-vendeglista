@@ -96,7 +96,9 @@ export const CSV_REVERSE_MAP: Record<keyof Omit<Guest, 'id'>, string> = {
  * These are kept in sync when a guest is saved in either tab.
  */
 export const SHARED_FIELD_KEYS: (keyof Omit<Guest, 'id'>)[] = [
-  'letszam', 'vendegNeve', 'telefonszam',
+  // letszam is intentionally excluded: teljes lista uses a global Sorszám,
+  // szállás uses a per-accommodation Sorszám — they must not overwrite each other.
+  'vendegNeve', 'telefonszam',
   'erkezesDatuma', 'tavozasDatuma', 'szallasTypusa', 'szallasNeve',
   'szobaszam', 'etkezes', 'etkezesiKorlatozas', 'megjegyzes', 'csoportNev',
 ];

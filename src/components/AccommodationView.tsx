@@ -18,9 +18,9 @@ interface AccommodationViewProps {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function guestHeadcount(g: Guest): number {
-  const n = parseInt(g.letszam ?? '', 10);
-  return isNaN(n) || n < 1 ? 1 : n;
+// Sorszám is per-accommodation row index in the Excel — not party size.
+function guestHeadcount(_g: Guest): number {
+  return 1;
 }
 
 const dateFormatter = new Intl.DateTimeFormat('hu-HU', { month: 'short', day: 'numeric' });
@@ -565,9 +565,6 @@ function AccommodationCard({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-800 truncate">{g.vendegNeve || '—'}</span>
-                    {parseInt(g.letszam ?? '', 10) > 1 && (
-                      <span className="text-xs text-gray-400">{g.letszam} fő</span>
-                    )}
                     <RsvpBadge value={g.visszajelzes ?? ''} />
                     {dates && <span className="text-xs text-gray-400">{dates}</span>}
                     {g.etkezesiKorlatozas && (
